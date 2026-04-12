@@ -9,6 +9,7 @@ lerna-debug.log*
 
 # Project policy: do not version markdown (keep locally if needed)
 *.md
+!README.md
 
 node_modules
 dist
