@@ -2,6 +2,8 @@
 
 Wondows is a **Solana-first** desktop you run in the browser: an OS-shaped shell that tries to put what on-chain degens actually use—wallet, token tooling, file-style workflows, and small utilities—in one place instead of a mess of tabs and bookmarklets.
 
+We are building this on purpose in public: it is **still in progress**, not a finished product, so expect missing pieces, rough edges, and changes as we keep shipping.
+
 Under the hood it is still a **single-page app**. You get a taskbar, start menu, draggable windows, and built-in programs. Virtual files, the Recycle Bin, Notepad, wallpapers, and most settings live in **localStorage** on that device, so clearing site data for the site wipes them.
 
 The stack is **React** and **Vite**. Visually it leans bright and a little ridiculous: Comic Neue, chunky borders, a Windows-adjacent vibe without pretending to be the real thing. Chain features need a working **Solana** RPC and any optional backends you configure; you can still click around the desktop without them.
