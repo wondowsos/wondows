@@ -1,8 +1,10 @@
 # Wondows
 
-Wondows is a single-page app that imitates a classic desktop: taskbar, start menu, draggable windows, and a handful of built-in programs. Everything runs in the browser. Your virtual files, Recycle Bin, Notepad content, wallpapers, and most settings live in **localStorage** on that machine, so clearing site data will wipe them.
+Wondows is a **Solana-first** desktop you run in the browser: an OS-shaped shell that tries to put what on-chain degens actually use—wallet, token tooling, file-style workflows, and small utilities—in one place instead of a mess of tabs and bookmarklets.
 
-The UI is built with **React** and **Vite**. Styling goes for a bright, slightly silly Windows-adjacent look (Comic Neue, chunky borders). Some features touch **Solana** (wallet + token tooling); those parts only work if you point the app at working RPC and optional backend URLs.
+Under the hood it is still a **single-page app**. You get a taskbar, start menu, draggable windows, and built-in programs. Virtual files, the Recycle Bin, Notepad, wallpapers, and most settings live in **localStorage** on that device, so clearing site data for the site wipes them.
+
+The stack is **React** and **Vite**. Visually it leans bright and a little ridiculous: Comic Neue, chunky borders, a Windows-adjacent vibe without pretending to be the real thing. Chain features need a working **Solana** RPC and any optional backends you configure; you can still click around the desktop without them.
 
 ## Requirements
 
