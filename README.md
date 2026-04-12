@@ -60,4 +60,4 @@ Wallet private material and API keys the app stores are kept in **localStorage**
 
 ## License
 
-No license file is included in this repository. If you fork or ship it, add one that matches how you want others to use the code.
+[MIT](LICENSE).
