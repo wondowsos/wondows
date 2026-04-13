@@ -29,7 +29,7 @@ npm run build
 npm run preview
 ```
 
-`preview` uses the same dev proxy rules as `npm run dev`, which matters if you rely on `/api/...` routes (see below).
+`preview` uses the same dev proxy rules as `npm run dev`, which matters for `/api/pinata` and `/api/pumpdev` (see below).
 
 Lint:
 
@@ -45,16 +45,14 @@ Copy `.env.example` to `.env` and set whatever you need. `.env` is gitignored an
 |----------|------------------|---------|
 | `VITE_SOLANA_RPC_URL` | Client | HTTP JSON-RPC for Solana (e.g. Helius, QuickNode). If unset, the app falls back to the public mainnet endpoint, which is rate-limited and not ideal for real use. |
 | `PINATA_JWT` | Vite dev/preview proxy only | Bearer token for Pinata. The dev server forwards `/api/pinata/*` to Pinata and injects this header so the token never ships to the browser. |
-| `VITE_WALLET_API_ORIGIN` | Vite dev/preview proxy only | Base URL of a backend that implements your wallet HTTP API. When set, `/api/wallet/*` and `/api/trade-local` are proxied there. |
-| `VITE_WALLET_CREATE_URL` | Client (optional) | Overrides the default `/api/wallet/create-wallet` path for wallet creation. |
-| `VITE_TRADE_LOCAL_URL` | Client (optional) | Overrides the default `/api/trade-local` base used by Token Studio trade flows. |
+| `VITE_PUMPDEV_API_BASE` | Client (optional) | Base URL for [PumpDev](https://pumpdev.io/welcome) (`/api/wallet/create`, `/api/create`). Default: `/api/pumpdev` in dev (proxied to `https://pumpdev.io`) and `https://pumpdev.io` in production builds. |
 | `VITE_PINATA_UPLOAD_BASE` | Client (optional) | Overrides the default `/api/pinata` base for uploads. |
 
-None of the Solana or Pinata integration is mandatory to click around the desktop; it only matters when you use Wallet or Token Studio.
+Wallet talks to PumpDev for Lightning wallet creation; Token Studio uploads metadata via Pinata (proxied in dev) and asks PumpDev for an unsigned create transaction you sign in the browser. None of that is required to explore the desktop UI.
 
 ## What’s in the box
 
-Rough inventory: File Explorer (paths under a fake drive), Notepad, a simple browser pane, terminal, calculator, clock, Minesweeper, Paint, Settings (wallpaper and themes), About, Wallet, and Token Studio (metadata upload and mint-related flows that expect a configured RPC and optional services).
+Rough inventory: File Explorer (paths under a fake drive), Notepad, a simple browser pane, terminal, calculator, clock, Minesweeper, Paint, Settings (wallpaper and themes), About, Wallet (balances plus PumpDev [creator fee](https://pumpdev.io/claim-fees) and [cashback](https://pumpdev.io/claim-cashback) claim tabs), and Token Studio (metadata upload and mint-related flows that expect a configured RPC and optional services).
 
 Keyboard shortcuts are listed in the About window; they mostly open apps with Alt+Shift plus a letter.
 

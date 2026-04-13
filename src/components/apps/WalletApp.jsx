@@ -1,11 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { STORAGE_KEYS } from '../../constants'
 import { copyTextToClipboard } from '../../lib/clipboard'
+import {
+  claimPumpdevCashback,
+  claimPumpdevCreatorFees,
+} from '../../lib/pumpdevClaims'
 import { createWalletViaHttp } from '../../lib/walletApi'
 import { formatRpcHost, getSolanaRpcUrl } from '../../lib/solanaRpc'
 
 const KEY = STORAGE_KEYS.walletBundle
 const LEGACY_WALLET_KEY = 'wondows-pump-wallet'
+
+const WALLET_TABS = [
+  { id: 'balances', label: 'Balances' },
+  { id: 'fees', label: 'Creator fees' },
+  { id: 'cashback', label: 'Cashback' },
+]
 
 function WalletTokenIcon({ imageUrl, fallbackChar }) {
   const [showImg, setShowImg] = useState(!!imageUrl)
@@ -32,17 +42,16 @@ function WalletTokenIcon({ imageUrl, fallbackChar }) {
 function normalizeImported(raw) {
   if (!raw || typeof raw !== 'object') return null
   const { walletPublicKey, privateKey, apiKey } = raw
+  const ak = typeof apiKey === 'string' ? apiKey.trim() : ''
   if (
     typeof walletPublicKey !== 'string' ||
     typeof privateKey !== 'string' ||
-    typeof apiKey !== 'string' ||
     !walletPublicKey.trim() ||
-    !privateKey.trim() ||
-    !apiKey.trim()
+    !privateKey.trim()
   ) {
     return null
   }
-  return { walletPublicKey, privateKey, apiKey }
+  return { walletPublicKey, privateKey, apiKey: ak }
 }
 
 function loadStored() {
@@ -74,7 +83,16 @@ export default function WalletApp() {
   const [chain, setChain] = useState(null)
   const [chainLoading, setChainLoading] = useState(false)
   const [chainErr, setChainErr] = useState('')
+  const [walletTab, setWalletTab] = useState('balances')
+  const [feeMint, setFeeMint] = useState('')
+  const [feesBusy, setFeesBusy] = useState(false)
+  const [feesErr, setFeesErr] = useState('')
+  const [feesSig, setFeesSig] = useState('')
+  const [cashBusy, setCashBusy] = useState(false)
+  const [cashErr, setCashErr] = useState('')
+  const [cashSig, setCashSig] = useState('')
   const fileRef = useRef(null)
+  const tabBaseId = useId()
 
   const loadChain = useCallback(async () => {
     if (!bundle?.walletPublicKey) return
@@ -102,6 +120,12 @@ export default function WalletApp() {
     setErr('')
     setChain(null)
     setChainErr('')
+    setWalletTab('balances')
+    setFeeMint('')
+    setFeesErr('')
+    setFeesSig('')
+    setCashErr('')
+    setCashSig('')
   }, [])
 
   useEffect(() => {
@@ -145,7 +169,7 @@ export default function WalletApp() {
   const applyImport = (parsed) => {
     if (!parsed) {
       setErr(
-        'Invalid JSON. Expected an object with walletPublicKey, privateKey, and apiKey (same format as Export JSON).',
+        'Invalid JSON. Expected walletPublicKey and privateKey (apiKey optional; Token Studio needs an API key).',
       )
       return
     }
@@ -218,12 +242,61 @@ export default function WalletApp() {
     return `${s.slice(0, head)}…${s.slice(-head)}`
   }
 
+  const selectTab = (id) => {
+    setWalletTab(id)
+    setFeesErr('')
+    setCashErr('')
+  }
+
+  const onClaimCreatorFees = async () => {
+    if (!bundle?.walletPublicKey || !bundle?.privateKey) return
+    setFeesErr('')
+    setFeesSig('')
+    setFeesBusy(true)
+    try {
+      const sig = await claimPumpdevCreatorFees({
+        publicKey: bundle.walletPublicKey,
+        mint: feeMint,
+        apiKey: bundle.apiKey,
+        privateKeyB58: bundle.privateKey,
+        rpcUrl: getSolanaRpcUrl(),
+      })
+      setFeesSig(sig)
+    } catch (e) {
+      setFeesSig('')
+      setFeesErr(e?.message ?? 'Could not claim creator fees.')
+    } finally {
+      setFeesBusy(false)
+    }
+  }
+
+  const onClaimCashback = async () => {
+    if (!bundle?.walletPublicKey || !bundle?.privateKey) return
+    setCashErr('')
+    setCashSig('')
+    setCashBusy(true)
+    try {
+      const sig = await claimPumpdevCashback({
+        publicKey: bundle.walletPublicKey,
+        apiKey: bundle.apiKey,
+        privateKeyB58: bundle.privateKey,
+        rpcUrl: getSolanaRpcUrl(),
+      })
+      setCashSig(sig)
+    } catch (e) {
+      setCashSig('')
+      setCashErr(e?.message ?? 'Could not claim cashback.')
+    } finally {
+      setCashBusy(false)
+    }
+  }
+
   return (
     <div className="os-app-wallet">
       <p className="os-wallet-intro">
-        Create a new Solana wallet and API key, or <strong>import a JSON file</strong>{' '}
-        exported from this app. Data is stored in <strong>localStorage</strong> in
-        this browser. Balances use the Solana RPC configured for this deployment.
+        Create a new <strong>Solana wallet and API key</strong>, or <strong>import a JSON file</strong>{' '}
+        exported from this app. Stored in <strong>localStorage</strong>. Balances use the Solana RPC
+        configured for this deployment.
       </p>
 
       <input
@@ -263,7 +336,311 @@ export default function WalletApp() {
         </div>
       ) : (
         <>
-          <div className="os-wallet-actions os-wallet-actions-top">
+          <section className="os-wallet-pub-top" aria-label="Public key">
+            <span className="os-wallet-pub-top-label">Public key</span>
+            <div className="os-wallet-pub-top-row">
+              <code className="os-wallet-code os-wallet-pub-top-code">
+                {bundle.walletPublicKey}
+              </code>
+              <button
+                type="button"
+                className="os-wallet-mini"
+                onClick={() =>
+                  void copyTextToClipboard(bundle.walletPublicKey)
+                }
+              >
+                Copy
+              </button>
+            </div>
+          </section>
+
+          {!bundle.apiKey?.trim() ? (
+            <p className="os-wallet-msg" role="status">
+              No API key in this bundle — Token Studio needs an <code className="os-wallet-intro-code">apiKey</code>.
+              Import JSON that includes it or create a new wallet.
+            </p>
+          ) : null}
+
+          <div className="os-wallet-tabs" role="tablist" aria-label="Wallet sections">
+            {WALLET_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`${tabBaseId}-${t.id}`}
+                className="os-wallet-tab"
+                aria-selected={walletTab === t.id}
+                tabIndex={walletTab === t.id ? 0 : -1}
+                onClick={() => selectTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div
+            role="tabpanel"
+            id={`${tabBaseId}-panel-${walletTab}`}
+            aria-labelledby={`${tabBaseId}-${walletTab}`}
+            className="os-wallet-tab-panel"
+          >
+            {walletTab === 'balances' ? (
+              <>
+                <section className="os-wallet-chain" aria-label="Balances">
+                  <div className="os-wallet-chain-head">
+                    <button
+                      type="button"
+                      className="os-wallet-mini"
+                      title={formatRpcHost(getSolanaRpcUrl())}
+                      onClick={() => void loadChain()}
+                      disabled={chainLoading}
+                    >
+                      {chainLoading ? '…' : 'Refresh'}
+                    </button>
+                  </div>
+                  {chainErr ? (
+                    <p className="os-wallet-chain-err" role="alert">
+                      {chainErr}
+                    </p>
+                  ) : null}
+                  {chainLoading && !chain ? (
+                    <p className="os-wallet-chain-status">Loading balances…</p>
+                  ) : null}
+                  {chain ? (
+                    <>
+                      <p className="os-wallet-sol-line">
+                        <strong>SOL balance</strong>{' '}
+                        <span className="os-wallet-sol-amt">
+                          {chain.sol.toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 9,
+                          })}{' '}
+                          SOL
+                        </span>
+                      </p>
+                      <p className="os-wallet-tokens-title">Tokens (SPL / Token-2022)</p>
+                      {chain.tokens.length === 0 ? (
+                        <p className="os-wallet-tokens-empty">No tokens in this wallet.</p>
+                      ) : (
+                        <div className="os-wallet-tokens-wrap">
+                          <table className="os-wallet-tokens">
+                            <thead>
+                              <tr>
+                                <th>Token</th>
+                                <th>Balance</th>
+                                <th aria-label="Actions" />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {chain.tokens.map((t) => (
+                                <tr key={t.mint}>
+                                  <td>
+                                    <div className="os-wallet-tok-cell">
+                                      <div className="os-wallet-tok-icon-wrap">
+                                        <WalletTokenIcon
+                                          imageUrl={t.imageUrl}
+                                          fallbackChar={t.symbol || t.label}
+                                        />
+                                      </div>
+                                      <div className="os-wallet-tok-meta">
+                                        {t.name ? (
+                                          <>
+                                            <span className="os-wallet-tok-name">{t.name}</span>
+                                            {t.symbol && t.symbol !== t.name ? (
+                                              <span className="os-wallet-tok-symbol">
+                                                {t.symbol}
+                                              </span>
+                                            ) : null}
+                                          </>
+                                        ) : (
+                                          <span className="os-wallet-tok-name">
+                                            {t.symbol || t.label}
+                                          </span>
+                                        )}
+                                        <span className="os-wallet-tok-prog">{t.program}</span>
+                                        <code className="os-wallet-tok-mint" title={t.mint}>
+                                          {t.mint.slice(0, 6)}…{t.mint.slice(-6)}
+                                        </code>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="os-wallet-tok-bal">
+                                    {t.uiAmountString}
+                                  </td>
+                                  <td>
+                                    <button
+                                      type="button"
+                                      className="os-wallet-mini"
+                                      title="Copy mint address"
+                                      onClick={() =>
+                                        void copyTextToClipboard(t.mint)
+                                      }
+                                    >
+                                      Copy
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </section>
+
+                <dl className="os-wallet-fields">
+                  <dt>API key</dt>
+                  <dd>
+                    <code className="os-wallet-code">
+                      {mask(bundle.apiKey, showApiKey)}
+                    </code>
+                    <button
+                      type="button"
+                      className="os-wallet-mini"
+                      onClick={() => setShowApiKey((v) => !v)}
+                    >
+                      {showApiKey ? 'Hide' : 'Reveal'}
+                    </button>
+                    {showApiKey ? (
+                      <button
+                        type="button"
+                        className="os-wallet-mini"
+                        onClick={() => void copyTextToClipboard(bundle.apiKey)}
+                      >
+                        Copy
+                      </button>
+                    ) : null}
+                  </dd>
+                  <dt>Private key</dt>
+                  <dd>
+                    <code className="os-wallet-code">
+                      {mask(bundle.privateKey, showPrivate)}
+                    </code>
+                    <button
+                      type="button"
+                      className="os-wallet-mini"
+                      onClick={() => setShowPrivate((v) => !v)}
+                    >
+                      {showPrivate ? 'Hide' : 'Reveal'}
+                    </button>
+                    {showPrivate ? (
+                      <button
+                        type="button"
+                        className="os-wallet-mini"
+                        onClick={copyPk}
+                      >
+                        Copy
+                      </button>
+                    ) : null}
+                  </dd>
+                </dl>
+                <div className="os-wallet-actions">
+                  <button type="button" className="os-wallet-primary" onClick={exportJson}>
+                    Export JSON (keys)
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {walletTab === 'fees' ? (
+              <>
+                <p className="os-wallet-claim-blurb">
+                  Collect pump.fun creator royalties in a single on-chain transaction.
+                </p>
+                <p className="os-wallet-claim-hint">
+                  The service returns an unsigned transaction; this app signs with your saved private
+                  key and broadcasts it using your configured Solana RPC.
+                </p>
+                <div className="os-wallet-claim-field">
+                  <label className="os-wallet-claim-label" htmlFor={`${tabBaseId}-fee-mint`}>
+                    Mint (optional)
+                  </label>
+                  <input
+                    id={`${tabBaseId}-fee-mint`}
+                    className="os-wallet-claim-input"
+                    value={feeMint}
+                    onChange={(e) => setFeeMint(e.target.value)}
+                    placeholder="Token mint for graduated / fee-sharing cases"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <p className="os-wallet-claim-hint">
+                    Leave empty to claim account-wide fees. If you are asked for a mint (for example
+                    graduated tokens with fee sharing), paste it here and try again.
+                  </p>
+                </div>
+                {feesErr ? (
+                  <p className="os-wallet-error" role="alert">
+                    {feesErr}
+                  </p>
+                ) : null}
+                {feesSig ? (
+                  <p className="os-wallet-claim-success" role="status">
+                    Submitted —{' '}
+                    <a
+                      href={`https://solscan.io/tx/${feesSig}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      view on Solscan
+                    </a>
+                  </p>
+                ) : null}
+                <div className="os-wallet-actions">
+                  <button
+                    type="button"
+                    className="os-wallet-primary"
+                    onClick={() => void onClaimCreatorFees()}
+                    disabled={feesBusy}
+                  >
+                    {feesBusy ? 'Working…' : 'Claim creator fees'}
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {walletTab === 'cashback' ? (
+              <>
+                <p className="os-wallet-claim-blurb">
+                  Claim eligible trading cashback.
+                </p>
+                <p className="os-wallet-claim-hint">
+                  Same flow as creator fees: you receive an unsigned transaction, sign locally, and
+                  broadcast on your RPC.
+                </p>
+                {cashErr ? (
+                  <p className="os-wallet-error" role="alert">
+                    {cashErr}
+                  </p>
+                ) : null}
+                {cashSig ? (
+                  <p className="os-wallet-claim-success" role="status">
+                    Submitted —{' '}
+                    <a
+                      href={`https://solscan.io/tx/${cashSig}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      view on Solscan
+                    </a>
+                  </p>
+                ) : null}
+                <div className="os-wallet-actions">
+                  <button
+                    type="button"
+                    className="os-wallet-primary"
+                    onClick={() => void onClaimCashback()}
+                    disabled={cashBusy}
+                  >
+                    {cashBusy ? 'Working…' : 'Claim cashback'}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+
+          <div className="os-wallet-actions os-wallet-actions-footer">
             <button
               type="button"
               className="os-wallet-secondary"
@@ -279,174 +656,6 @@ export default function WalletApp() {
               disabled={busy}
             >
               New wallet (API)
-            </button>
-          </div>
-
-          <section className="os-wallet-chain" aria-label="Balances">
-            <div className="os-wallet-chain-head">
-              <button
-                type="button"
-                className="os-wallet-mini"
-                title={formatRpcHost(getSolanaRpcUrl())}
-                onClick={() => void loadChain()}
-                disabled={chainLoading}
-              >
-                {chainLoading ? '…' : 'Refresh'}
-              </button>
-            </div>
-            {chainErr ? (
-              <p className="os-wallet-chain-err" role="alert">
-                {chainErr}
-              </p>
-            ) : null}
-            {chainLoading && !chain ? (
-              <p className="os-wallet-chain-status">Loading balances…</p>
-            ) : null}
-            {chain ? (
-              <>
-                <p className="os-wallet-sol-line">
-                  <strong>SOL balance</strong>{' '}
-                  <span className="os-wallet-sol-amt">
-                    {chain.sol.toLocaleString(undefined, {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 9,
-                    })}{' '}
-                    SOL
-                  </span>
-                </p>
-                <p className="os-wallet-tokens-title">Tokens (SPL / Token-2022)</p>
-                {chain.tokens.length === 0 ? (
-                  <p className="os-wallet-tokens-empty">No tokens in this wallet.</p>
-                ) : (
-                  <div className="os-wallet-tokens-wrap">
-                    <table className="os-wallet-tokens">
-                      <thead>
-                        <tr>
-                          <th>Token</th>
-                          <th>Balance</th>
-                          <th aria-label="Actions" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {chain.tokens.map((t) => (
-                          <tr key={t.mint}>
-                            <td>
-                              <div className="os-wallet-tok-cell">
-                                <div className="os-wallet-tok-icon-wrap">
-                                  <WalletTokenIcon
-                                    imageUrl={t.imageUrl}
-                                    fallbackChar={t.symbol || t.label}
-                                  />
-                                </div>
-                                <div className="os-wallet-tok-meta">
-                                  {t.name ? (
-                                    <>
-                                      <span className="os-wallet-tok-name">{t.name}</span>
-                                      {t.symbol && t.symbol !== t.name ? (
-                                        <span className="os-wallet-tok-symbol">
-                                          {t.symbol}
-                                        </span>
-                                      ) : null}
-                                    </>
-                                  ) : (
-                                    <span className="os-wallet-tok-name">
-                                      {t.symbol || t.label}
-                                    </span>
-                                  )}
-                                  <span className="os-wallet-tok-prog">{t.program}</span>
-                                  <code className="os-wallet-tok-mint" title={t.mint}>
-                                    {t.mint.slice(0, 6)}…{t.mint.slice(-6)}
-                                  </code>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="os-wallet-tok-bal">
-                              {t.uiAmountString}
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className="os-wallet-mini"
-                                title="Copy mint address"
-                                onClick={() =>
-                                  void copyTextToClipboard(t.mint)
-                                }
-                              >
-                                Copy
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            ) : null}
-          </section>
-
-          <dl className="os-wallet-fields">
-            <dt>Public key</dt>
-            <dd>
-              <code className="os-wallet-code">{bundle.walletPublicKey}</code>
-              <button
-                type="button"
-                className="os-wallet-mini"
-                onClick={() =>
-                  void copyTextToClipboard(bundle.walletPublicKey)
-                }
-              >
-                Copy
-              </button>
-            </dd>
-            <dt>API key</dt>
-            <dd>
-              <code className="os-wallet-code">
-                {mask(bundle.apiKey, showApiKey)}
-              </code>
-              <button
-                type="button"
-                className="os-wallet-mini"
-                onClick={() => setShowApiKey((v) => !v)}
-              >
-                {showApiKey ? 'Hide' : 'Reveal'}
-              </button>
-              <button
-                type="button"
-                className="os-wallet-mini"
-                onClick={() => void copyTextToClipboard(bundle.apiKey)}
-              >
-                Copy
-              </button>
-            </dd>
-            <dt>Private key</dt>
-            <dd>
-              <code className="os-wallet-code">
-                {mask(bundle.privateKey, showPrivate)}
-              </code>
-              <button
-                type="button"
-                className="os-wallet-mini"
-                onClick={() => setShowPrivate((v) => !v)}
-              >
-                {showPrivate ? 'Hide' : 'Reveal'}
-              </button>
-              <button type="button" className="os-wallet-mini" onClick={copyPk}>
-                Copy
-              </button>
-            </dd>
-          </dl>
-          <div className="os-wallet-actions">
-            <button type="button" className="os-wallet-primary" onClick={exportJson}>
-              Export JSON (keys)
-            </button>
-            <button
-              type="button"
-              className="os-wallet-danger"
-              onClick={fetchAndSaveNewWallet}
-              disabled={busy}
-            >
-              Replace with new wallet
             </button>
           </div>
         </>

@@ -46,11 +46,12 @@ const DEFAULTS = {
   about: { w: 400, h: 340, title: 'About' },
   explorer: { w: 660, h: 460, title: 'File Explorer' },
   calculator: { w: 300, h: 420, title: 'Calculator' },
-  wallet: { w: 560, h: 580, title: 'Wallet' },
+  wallet: { w: 580, h: 640, title: 'Wallet' },
   pumpfun: { w: 540, h: 640, title: 'Token Studio' },
   paint: { w: 520, h: 520, title: 'Paint' },
   mines: { w: 420, h: 560, title: 'Minesweeper' },
   clock: { w: 380, h: 440, title: 'Clock' },
+  meteora: { w: 420, h: 280, title: 'Meteora' },
 }
 
 function windowTitle(type, def, payload) {

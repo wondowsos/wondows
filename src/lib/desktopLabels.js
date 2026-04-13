@@ -17,6 +17,7 @@ export const DEFAULT_DESKTOP_LABELS = {
   pumpfun: 'Token Studio',
   settings: 'Settings',
   terminal: 'Terminal',
+  meteora: 'Meteora',
 }
 
 const MAX_LEN = 48

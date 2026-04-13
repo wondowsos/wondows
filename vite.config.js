@@ -4,22 +4,15 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const walletApiOrigin = env.VITE_WALLET_API_ORIGIN?.trim() || ''
   const pinataJwt = env.PINATA_JWT?.trim() || ''
 
-  const walletProxy = walletApiOrigin
-    ? {
-        '/api/wallet': {
-          target: walletApiOrigin,
-          changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/api\/wallet/, '/api'),
-        },
-        '/api/trade-local': {
-          target: walletApiOrigin,
-          changeOrigin: true,
-        },
-      }
-    : {}
+  const pumpdevProxy = {
+    '/api/pumpdev': {
+      target: 'https://pumpdev.io',
+      changeOrigin: true,
+      rewrite: (p) => p.replace(/^\/api\/pumpdev/, ''),
+    },
+  }
 
   const pinataProxy = {
     '/api/pinata': {
@@ -37,7 +30,7 @@ export default defineConfig(({ mode }) => {
     },
   }
 
-  const proxy = { ...pinataProxy, ...walletProxy }
+  const proxy = { ...pinataProxy, ...pumpdevProxy }
 
   return {
     plugins: [react()],

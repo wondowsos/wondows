@@ -379,13 +379,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 10px;
+  padding: 0 6px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
-  background: var(--w-taskbar-elev);
-  border: 2px solid #111;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .os-task-btn {
@@ -432,6 +432,17 @@
   background: var(--w-task-btn-active-bg);
   outline: 2px solid var(--w-task-btn-active-outline);
   outline-offset: -2px;
+}
+
+.os-task-btn.minimized {
+  opacity: 0.72;
+}
+
+.os-task-icon-fallback {
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--w-task-btn-fg);
 }
 
 .os-tray {
@@ -555,20 +566,20 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 12px 6px;
+  padding: 10px 6px;
   border-radius: 0;
   color: var(--w-text);
-  border: 2px solid #111;
-  background: var(--w-start-tile-bg);
-  box-shadow: 2px 2px 0 #111;
-  transition:
-    transform 0.08s ease,
-    background 0.08s ease,
-    box-shadow 0.08s ease;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  transition: color 0.08s ease;
 }
 
 .os-start-tile:hover {
-  background: var(--w-start-tile-hover);
+  background: transparent;
+}
+
+.os-start-tile:hover .os-start-tile-icon {
   transform: translate(-1px, -1px);
   box-shadow: 3px 3px 0 #111;
 }
@@ -582,6 +593,10 @@
   justify-content: center;
   color: #fff;
   border: 2px solid #111;
+  box-shadow: 2px 2px 0 #111;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease;
 }
 
 .os-start-tile span {
@@ -594,7 +609,6 @@
 .os-start-footer {
   margin-top: auto;
   padding: 10px 14px;
-  border-top: 3px solid #111;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -989,12 +1003,52 @@
   text-decoration: underline double var(--w-accent);
 }
 
+.os-app-about p.os-about-vibes {
+  margin: 0 auto 16px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--w-text-muted, #555);
+  text-align: center;
+  max-width: 36em;
+}
+
 .os-app-about p {
   margin: 0;
   color: var(--w-text);
   font-size: 15px;
   font-weight: 700;
   line-height: 1.45;
+}
+
+.os-app-meteora {
+  box-sizing: border-box;
+  min-height: 160px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  color: var(--w-text);
+}
+
+.os-meteora-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: underline double var(--w-accent);
+}
+
+.os-meteora-soon {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--w-text-muted, #666);
 }
 
 /* --- Desktop icon badge --- */
@@ -1052,7 +1106,6 @@
   font-weight: 700;
   color: var(--w-text-muted);
   line-height: 1.35;
-  border-top: 2px dashed #bbb;
   background: var(--w-start-hint-bg);
 }
 
@@ -1681,6 +1734,38 @@
   border: 1px solid #111;
 }
 
+.os-wallet-pub-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--w-wallet-chain-bg);
+  border: 2px solid #111;
+}
+
+.os-wallet-pub-top-label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--w-text);
+}
+
+.os-wallet-pub-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.os-wallet-pub-top-code {
+  flex: 1 1 12rem;
+  min-width: 0;
+  word-break: break-all;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .os-wallet-chain {
   border: 3px solid #111;
   padding: 12px 14px;
@@ -1931,9 +2016,112 @@
   margin-top: 8px;
 }
 
-.os-wallet-actions-top {
-  margin-top: 0;
-  margin-bottom: 4px;
+.os-wallet-actions-footer {
+  margin-top: 4px;
+}
+
+.os-wallet-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 0;
+  border-bottom: 2px solid var(--w-window-frame, #111);
+  padding-bottom: 6px;
+}
+
+.os-wallet-tab {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  border: 2px solid #111;
+  border-bottom-width: 2px;
+  background: var(--w-surface);
+  color: var(--w-text);
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+}
+
+.os-wallet-tab:hover {
+  filter: brightness(1.03);
+}
+
+.os-wallet-tab[aria-selected='true'] {
+  background: var(--w-wallet-mini-bg);
+  margin-bottom: -8px;
+  padding-bottom: 14px;
+  border-bottom-color: var(--w-wallet-mini-bg);
+  position: relative;
+  z-index: 1;
+}
+
+.os-wallet-tab-panel {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.os-wallet-claim-blurb {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--w-text);
+}
+
+.os-wallet-claim-blurb a {
+  color: var(--w-link-fg);
+  text-decoration: underline;
+}
+
+.os-wallet-claim-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.os-wallet-claim-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.os-wallet-claim-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  border: 2px solid #111;
+  background: var(--w-field-bg, #fff);
+  color: var(--w-text);
+}
+
+.os-wallet-claim-hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--w-text-muted, #555);
+  line-height: 1.4;
+}
+
+.os-wallet-claim-success {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 2px solid #111;
+  background: var(--w-success-bubble-bg, #e8f5e9);
+  color: var(--w-success-bubble-fg, #1b5e20);
+}
+
+.os-wallet-claim-success a {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .os-wallet-file-input {

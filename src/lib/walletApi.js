@@ -1,15 +1,28 @@
+import { getPumpdevApiBase } from './pumpdevConfig'
+
 /**
- * Create a Solana wallet + API key bundle via a remote HTTP GET endpoint.
+ * Create a Solana wallet + PumpDev API key via POST /api/wallet/create.
+ * @see https://pumpdev.io/welcome
  */
 export async function createWalletViaHttp() {
-  const url =
-    import.meta.env.VITE_WALLET_CREATE_URL?.trim() ||
-    '/api/wallet/create-wallet'
+  const base = getPumpdevApiBase()
+  const url = `${base}/api/wallet/create`
 
-  const res = await fetch(url, { method: 'GET' })
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  })
   const text = await res.text()
   if (!res.ok) {
-    throw new Error(text?.slice(0, 200) || `Request failed (${res.status})`)
+    let msg = text?.slice(0, 300) || `Request failed (${res.status})`
+    try {
+      const j = JSON.parse(text)
+      if (j?.error) msg = String(j.error)
+    } catch {
+      /* keep msg */
+    }
+    throw new Error(msg)
   }
 
   let data
@@ -18,14 +31,15 @@ export async function createWalletViaHttp() {
   } catch {
     throw new Error('Server did not return JSON.')
   }
-  const { apiKey, walletPublicKey, privateKey } = data
+
+  const { apiKey, publicKey, privateKey } = data
   if (
     typeof apiKey !== 'string' ||
-    typeof walletPublicKey !== 'string' ||
+    typeof publicKey !== 'string' ||
     typeof privateKey !== 'string'
   ) {
-    throw new Error('Unexpected response from wallet API')
+    throw new Error('Unexpected response from wallet service')
   }
 
-  return { apiKey, walletPublicKey, privateKey }
+  return { apiKey, walletPublicKey: publicKey, privateKey }
 }

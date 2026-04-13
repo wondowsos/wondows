@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Bomb,
+  Calculator,
+  Clock,
   FileText,
   FolderOpen,
   Globe,
+  Info,
   LayoutGrid,
   Palette,
   Pill,
@@ -11,6 +14,7 @@ import {
   Terminal,
   Volume2,
   Wallet,
+  Waves,
 } from 'lucide-react'
 import { STORAGE_KEYS } from '../constants'
 import { useOs } from '../context/OsContext'
@@ -28,17 +32,22 @@ function readStoredVolume() {
   return 70
 }
 
-const PINNED = [
-  { type: 'explorer', icon: FolderOpen, label: 'Files' },
-  { type: 'browse', icon: Globe, label: 'Browse' },
-  { type: 'notepad', icon: FileText, label: 'Notepad' },
-  { type: 'paint', icon: Palette, label: 'Paint' },
-  { type: 'mines', icon: Bomb, label: 'Mines' },
-  { type: 'wallet', icon: Wallet, label: 'Wallet' },
-  { type: 'pumpfun', icon: Pill, label: 'Token Studio' },
-  { type: 'terminal', icon: Terminal, label: 'Terminal' },
-  { type: 'settings', icon: Settings, label: 'Settings' },
-]
+/** Lucide icon per window type for taskbar buttons (open windows only). */
+const TASKBAR_ICONS = {
+  explorer: FolderOpen,
+  browse: Globe,
+  notepad: FileText,
+  paint: Palette,
+  mines: Bomb,
+  wallet: Wallet,
+  pumpfun: Pill,
+  terminal: Terminal,
+  settings: Settings,
+  about: Info,
+  calculator: Calculator,
+  clock: Clock,
+  meteora: Waves,
+}
 
 function CalendarPop({ date, onClose }) {
   const y = date.getFullYear()
@@ -136,31 +145,10 @@ export default function Taskbar() {
     day: 'numeric',
   })
 
-  const typesOpen = new Set(
-    windows.filter((w) => !w.minimized).map((w) => w.type),
-  )
-  const topByType = {}
-  windows
-    .filter((w) => !w.minimized)
-    .forEach((w) => {
-      if (!topByType[w.type] || w.zIndex > topByType[w.type].zIndex) {
-        topByType[w.type] = w
-      }
-    })
-
-  const openPinned = useMemo(
-    () => ({
-      explorer: () => openWindow('explorer', { path: '/Documents' }),
-      browse: () => openWindow('browse'),
-      notepad: () => openWindow('notepad'),
-      paint: () => openWindow('paint'),
-      mines: () => openWindow('mines'),
-      wallet: () => openWindow('wallet'),
-      pumpfun: () => openWindow('pumpfun'),
-      terminal: () => openWindow('terminal'),
-      settings: () => openWindow('settings'),
-    }),
-    [openWindow],
+  /** Every window session (including minimized); no pinned shortcuts when idle. */
+  const taskbarWindows = useMemo(
+    () => [...windows].sort((a, b) => a.zIndex - b.zIndex),
+    [windows],
   )
 
   return (
@@ -200,24 +188,25 @@ export default function Taskbar() {
           >
             <LayoutGrid size={22} strokeWidth={2} />
           </button>
-          <div className="os-pinned">
-            {PINNED.map((pin) => {
-              const { type, icon: IconComponent } = pin
-              const running = typesOpen.has(type)
-              const top = topByType[type]
-              const active = top && focusedId === top.id
+          <div className="os-pinned" aria-label="Windows">
+            {taskbarWindows.map((win) => {
+              const IconComponent = TASKBAR_ICONS[win.type]
+              const active = focusedId === win.id && !win.minimized
               return (
                 <button
-                  key={type}
+                  key={win.id}
                   type="button"
-                  className={`os-task-btn${running ? ' running' : ''}${active ? ' active-window' : ''}`}
-                  title={type}
-                  onClick={() => {
-                    if (top) focusWindow(top.id)
-                    else openPinned[type]?.()
-                  }}
+                  className={`os-task-btn running${active ? ' active-window' : ''}${win.minimized ? ' minimized' : ''}`}
+                  title={win.minimized ? `${win.title} (minimized)` : win.title}
+                  onClick={() => focusWindow(win.id)}
                 >
-                  <IconComponent size={20} strokeWidth={1.75} />
+                  {IconComponent ? (
+                    <IconComponent size={20} strokeWidth={1.75} />
+                  ) : (
+                    <span className="os-task-icon-fallback" aria-hidden>
+                      ◆
+                    </span>
+                  )}
                 </button>
               )
             })}

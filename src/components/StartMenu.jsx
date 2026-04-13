@@ -14,6 +14,7 @@ import {
   Terminal,
   User,
   Wallet,
+  Waves,
 } from 'lucide-react'
 import { useOs } from '../context/OsContext'
 
@@ -97,6 +98,13 @@ const LAUNCH = [
     bg: '#e040fb',
   },
   {
+    type: 'meteora',
+    label: 'Meteora',
+    search: 'meteora dlmm liquidity solana dex pool',
+    icon: Waves,
+    bg: '#26a69a',
+  },
+  {
     type: 'about',
     label: 'About',
     search: 'info help version',
@@ -140,6 +148,8 @@ const RUN_WORDS = {
   mint: 'pumpfun',
   token: 'pumpfun',
   pill: 'pumpfun',
+  meteora: 'meteora',
+  dlmm: 'meteora',
   paint: 'paint',
   draw: 'paint',
   scribble: 'paint',

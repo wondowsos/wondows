@@ -18,16 +18,18 @@ function loadWalletBundle() {
       o.privateKey.trim() &&
       o.walletPublicKey.trim()
     ) {
-      return { privateKey: o.privateKey, walletPublicKey: o.walletPublicKey }
+      const apiKey = typeof o.apiKey === 'string' ? o.apiKey.trim() : ''
+      return {
+        privateKey: o.privateKey,
+        walletPublicKey: o.walletPublicKey,
+        apiKey,
+      }
     }
   } catch {
     /* ignore */
   }
   return null
 }
-
-const defaultTradeUrl =
-  import.meta.env.VITE_TRADE_LOCAL_URL?.trim() || '/api/trade-local'
 
 export default function PumpFunApp() {
   const [bundle, setBundle] = useState(null)
@@ -67,6 +69,12 @@ export default function PumpFunApp() {
       setErr('Create or import a wallet in the Wallet app first.')
       return
     }
+    if (!bundle?.apiKey) {
+      setErr(
+        'Your wallet bundle needs an API key. Open Wallet and create a new wallet, or import JSON that includes apiKey.',
+      )
+      return
+    }
     if (!name.trim() || !symbol.trim()) {
       setErr('Name and symbol are required.')
       return
@@ -87,8 +95,8 @@ export default function PumpFunApp() {
         telegram,
         website,
         privateKeyB58: bundle.privateKey,
+        apiKey: bundle.apiKey,
         rpcUrl: getSolanaRpcUrl(),
-        tradeLocalUrl: defaultTradeUrl,
         amountSol,
         slippage,
         priorityFee,
@@ -131,16 +139,24 @@ export default function PumpFunApp() {
       <section className="os-pumpfun-section">
         <h3 className="os-pumpfun-h3">Signer wallet</h3>
         {bundle ? (
-          <p className="os-pumpfun-wallet-ok">
-            Using <code className="os-pumpfun-code-inline">{bundle.walletPublicKey}</code>
-            <button
-              type="button"
-              className="os-pumpfun-btn os-pumpfun-btn--sm"
-              onClick={refreshWallet}
-            >
-              Refresh
-            </button>
-          </p>
+          <>
+            <p className="os-pumpfun-wallet-ok">
+              Using <code className="os-pumpfun-code-inline">{bundle.walletPublicKey}</code>
+              <button
+                type="button"
+                className="os-pumpfun-btn os-pumpfun-btn--sm"
+                onClick={refreshWallet}
+              >
+                Refresh
+              </button>
+            </p>
+            {!bundle.apiKey ? (
+              <p className="os-pumpfun-wallet-miss" role="status">
+                This wallet has no <code className="os-pumpfun-code-inline">apiKey</code> in storage.
+                Create a new wallet in the Wallet app or import JSON that includes it.
+              </p>
+            ) : null}
+          </>
         ) : (
           <p className="os-pumpfun-wallet-miss">
             No wallet in this browser. Open the Wallet app and create or import one.

@@ -3,6 +3,12 @@ export default function AboutApp() {
     <div className="os-app-about">
       <div className="logo-big">W</div>
       <h2>Wondows</h2>
+      <p className="os-about-vibes">
+        vibe shift + tides turning + stars aligning + balls tingling + this time
+        is different + supercycle (real) + beachball underwater + golden catchup
+        trade + mental capitulation + what if we all made it + i hope i
+        don&apos;t jinx it + please god please for the one time
+      </p>
       <p>
         A browser-based desktop experience. Your files, Recycle Bin, Notepad,
         Terminal, and settings are stored in <strong>localStorage</strong> on
@@ -18,12 +24,9 @@ export default function AboutApp() {
       </p>
       <p style={{ marginTop: 14 }}>
         <strong>Wallet:</strong> Create a Solana wallet and API key, or import
-        from a JSON backup. Keys remain in this browser; use Export in the
-        Wallet app for backups.
-      </p>
-      <p style={{ marginTop: 14 }}>
-        <strong>NEET theme:</strong> Optional dark interior look with warm
-        accents; unrelated to any person or lifestyle label.
+        from a JSON backup. The Wallet app has tabs for balances, creator fee
+        claims, and trading cashback. Keys stay in this browser; use Export for
+        backups.
       </p>
     </div>
   )

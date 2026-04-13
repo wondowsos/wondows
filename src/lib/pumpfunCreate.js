@@ -1,5 +1,6 @@
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
 import bs58 from 'bs58'
+import { getPumpdevApiBase } from './pumpdevConfig'
 
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/'
 
@@ -45,6 +46,10 @@ function keypairFromWalletPrivateKey(b58) {
   throw new Error('Private key must be 32-byte seed or 64-byte secret (base58)')
 }
 
+/**
+ * Client-side token creation: PumpDev builds the tx; you sign with mint + creator and send.
+ * @see https://pumpdev.io/welcome — POST /api/create
+ */
 export async function createPumpfunTokenLocal({
   imageFile,
   name,
@@ -54,12 +59,16 @@ export async function createPumpfunTokenLocal({
   telegram,
   website,
   privateKeyB58,
+  apiKey,
+  pumpdevApiBase,
   rpcUrl,
-  tradeLocalUrl,
   amountSol,
   slippage,
   priorityFee,
 }) {
+  const key = String(apiKey ?? '').trim()
+  if (!key) throw new Error('API key is required — add one in the Wallet app.')
+
   const imageCid = await pinataUploadFile(imageFile)
   const imageUri = `${IPFS_GATEWAY}${imageCid}`
 
@@ -78,38 +87,67 @@ export async function createPumpfunTokenLocal({
   const metaCid = await pinataUploadFile(metaFile)
   const metadataUri = `${IPFS_GATEWAY}${metaCid}`
 
-  const mintKeypair = Keypair.generate()
   const signerKeypair = keypairFromWalletPrivateKey(privateKeyB58)
+
+  const base = (pumpdevApiBase ?? getPumpdevApiBase()).replace(/\/$/, '')
+  const url = `${base}/api/create?api-key=${encodeURIComponent(key)}`
 
   const body = {
     publicKey: signerKeypair.publicKey.toBase58(),
-    action: 'create',
-    tokenMetadata: {
-      name: meta.name,
-      symbol: meta.symbol,
-      uri: metadataUri,
-    },
-    mint: mintKeypair.publicKey.toBase58(),
-    denominatedInSol: 'true',
-    amount: amountSol,
+    name: meta.name,
+    symbol: meta.symbol,
+    uri: metadataUri,
+    buyAmountSol: amountSol,
     slippage,
     priorityFee,
-    pool: 'pump',
   }
 
-  const res = await fetch(tradeLocalUrl, {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
 
-  if (!res.ok) {
-    const t = await res.text()
-    throw new Error(t?.slice(0, 500) || `Create-tx API failed (${res.status})`)
+  const text = await res.text()
+  let json
+  try {
+    json = JSON.parse(text)
+  } catch {
+    if (!res.ok) {
+      throw new Error(text?.slice(0, 500) || `Create API failed (${res.status})`)
+    }
+    throw new Error('Create API did not return JSON')
   }
 
-  const buf = new Uint8Array(await res.arrayBuffer())
-  const tx = VersionedTransaction.deserialize(buf)
+  if (!res.ok) {
+    throw new Error(json?.error || text?.slice(0, 500) || `Create API failed (${res.status})`)
+  }
+
+  const txB58 = json?.transaction
+  const mintSecretB58 = json?.mintSecretKey
+  const mintAddr = json?.mint
+  if (typeof txB58 !== 'string' || typeof mintSecretB58 !== 'string') {
+    throw new Error('Create API response missing transaction or mintSecretKey')
+  }
+
+  let mintSecret
+  try {
+    mintSecret = bs58.decode(mintSecretB58)
+  } catch {
+    throw new Error('Invalid mintSecretKey from API')
+  }
+  const mintKeypair =
+    mintSecret.length === 64
+      ? Keypair.fromSecretKey(mintSecret)
+      : Keypair.fromSeed(mintSecret)
+
+  let txBytes
+  try {
+    txBytes = bs58.decode(txB58)
+  } catch {
+    throw new Error('Invalid transaction encoding from API')
+  }
+  const tx = VersionedTransaction.deserialize(txBytes)
   tx.sign([mintKeypair, signerKeypair])
 
   const connection = new Connection(rpcUrl, 'confirmed')
@@ -120,7 +158,7 @@ export async function createPumpfunTokenLocal({
 
   return {
     signature: sig,
-    mint: mintKeypair.publicKey.toBase58(),
+    mint: typeof mintAddr === 'string' ? mintAddr : mintKeypair.publicKey.toBase58(),
     metadataUri,
   }
 }

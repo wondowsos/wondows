@@ -13,6 +13,7 @@ import {
   Terminal,
   Trash2,
   Wallet,
+  Waves,
 } from 'lucide-react'
 import { useOs } from '../context/OsContext'
 import { useFs } from '../context/FsContext'
@@ -43,6 +44,7 @@ const TILE = {
   paint: '#ec407a',
   mines: '#5d4037',
   clock: '#5c6bc0',
+  meteora: '#26a69a',
 }
 
 function isTypingTarget(el) {
@@ -173,6 +175,7 @@ export default function Desktop() {
       pumpfun: () => openWindow('pumpfun'),
       settings: () => openWindow('settings'),
       terminal: () => openWindow('terminal'),
+      meteora: () => openWindow('meteora'),
     }),
     [openWindow],
   )
@@ -393,6 +396,17 @@ export default function Desktop() {
           onContextMenu={onCtx}
         >
           <Terminal />
+        </DesktopIcon>
+        <DesktopIcon
+          iconId="meteora"
+          label={labels.meteora}
+          tileBg={TILE.meteora}
+          selected={selectedId === 'meteora'}
+          onSelect={setSelectedId}
+          onOpen={() => openShortcut('meteora')}
+          onContextMenu={onCtx}
+        >
+          <Waves />
         </DesktopIcon>
         {deskFilePaths.map((path) => {
           const iconId = fileDesktopIconId(path)
