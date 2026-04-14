@@ -23,7 +23,18 @@ export function setSoundEffectsEnabled(on) {
   }
 }
 
-export function playUiBeep(volumePercent = 50) {
+function readUiVolumePercent() {
+  if (typeof localStorage === 'undefined') return 70
+  try {
+    const n = Number.parseInt(localStorage.getItem(STORAGE_KEYS.volume), 10)
+    if (Number.isFinite(n)) return Math.max(0, Math.min(100, n))
+  } catch {
+    /* ignore */
+  }
+  return 70
+}
+
+function playToneHz(volumePercent, frequencyHz, durationSec) {
   if (typeof window === 'undefined') return
   if (!getSoundEffectsEnabled()) return
   try {
@@ -32,17 +43,29 @@ export function playUiBeep(volumePercent = 50) {
     if (!audioCtx || audioCtx.state === 'closed') audioCtx = new Ctx()
     if (audioCtx.state === 'suspended') void audioCtx.resume()
 
-    const g = Math.max(0, Math.min(1, volumePercent / 100)) * 0.15
+    const g = Math.max(0, Math.min(1, volumePercent / 100)) * 0.14
     const osc = audioCtx.createOscillator()
     const gain = audioCtx.createGain()
     osc.type = 'sine'
-    osc.frequency.value = 880
+    osc.frequency.value = frequencyHz
     gain.gain.value = g
     osc.connect(gain)
     gain.connect(audioCtx.destination)
-    osc.start()
-    osc.stop(audioCtx.currentTime + 0.06)
+    const t0 = audioCtx.currentTime
+    osc.start(t0)
+    osc.stop(t0 + durationSec)
   } catch {
     /* ignore */
   }
+}
+
+export function playUiBeep(volumePercent = 50) {
+  playToneHz(volumePercent, 880, 0.06)
+}
+
+/** Two-tone chime for success (volume from Settings slider). */
+export function playSuccessChime() {
+  const vol = readUiVolumePercent()
+  playToneHz(vol, 523.25, 0.07)
+  window.setTimeout(() => playToneHz(vol, 784, 0.1), 70)
 }

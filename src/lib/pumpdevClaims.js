@@ -1,7 +1,11 @@
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
 import bs58 from 'bs58'
 import { getPumpdevApiBase } from './pumpdevConfig'
-import { sendRawTransactionWithSolCheck } from './solanaSend'
+import {
+  collectSendTransactionErrorText,
+  InsufficientSolError,
+  sendRawTransactionWithSolCheck,
+} from './solanaSend'
 
 function keypairFromPrivateKeyB58(b58) {
   const trimmed = String(b58 ?? '').trim()
@@ -22,6 +26,7 @@ function keypairFromPrivateKeyB58(b58) {
  * @see https://pumpdev.io/claim-fees — /api/claim-account
  * @see https://pumpdev.io/claim-cashback — /api/claim-cashback
  * @see https://pumpdev.io/transfer — /api/transfer
+ * @see https://pumpdev.io/trade-api — /api/trade-local
  */
 async function fetchPumpdevUnsignedTx(path, { apiKey, body }) {
   const base = getPumpdevApiBase()
@@ -74,6 +79,21 @@ async function signAndSendVersionedTx(tx, privateKeyB58, rpcUrl) {
 }
 
 /**
+ * ClaimCashback + uninitialized `user_volume_accumulator` (Anchor 3012 / 0xbc4) means nothing to claim.
+ */
+function isCashbackVolumeAccountNotReadyLog(text) {
+  const s = String(text ?? '')
+  if (/user_volume_accumulator/i.test(s) && /AccountNotInitialized/i.test(s)) return true
+  if (
+    /ClaimCashback/i.test(s) &&
+    (/AccountNotInitialized/i.test(s) || /\b3012\b/.test(s) || /0xbc4\b/i.test(s))
+  ) {
+    return true
+  }
+  return false
+}
+
+/**
  * Claim pump.fun creator fees (client-side sign + your RPC).
  * Optional `mint` for graduated tokens with fee sharing.
  */
@@ -102,7 +122,17 @@ export async function claimPumpdevCashback({
     apiKey,
     body: { publicKey },
   })
-  return signAndSendVersionedTx(tx, privateKeyB58, rpcUrl)
+  try {
+    return await signAndSendVersionedTx(tx, privateKeyB58, rpcUrl)
+  } catch (err) {
+    if (err instanceof InsufficientSolError) throw err
+    const connection = new Connection(rpcUrl, 'confirmed')
+    const blob = await collectSendTransactionErrorText(err, connection)
+    if (isCashbackVolumeAccountNotReadyLog(blob)) {
+      throw new Error('No cashback available for this wallet yet.')
+    }
+    throw err
+  }
 }
 
 /**
@@ -127,5 +157,61 @@ export async function transferPumpdevSol({
     apiKey,
     body: { publicKey, recipient: to, amount: amt },
   })
+  return signAndSendVersionedTx(tx, privateKeyB58, rpcUrl)
+}
+
+/**
+ * Buy or sell a pump.fun token via PumpDev (unsigned tx from API, sign locally, send on your RPC).
+ * @see https://pumpdev.io/trade-api — POST /api/trade-local
+ */
+export async function tradePumpdevLocal({
+  publicKey,
+  action,
+  mint,
+  amount,
+  denominatedInSol,
+  apiKey,
+  privateKeyB58,
+  rpcUrl,
+}) {
+  const m = mint?.trim()
+  if (!m) throw new Error('Token mint is required')
+  const act = String(action ?? '').toLowerCase()
+  if (act !== 'buy' && act !== 'sell') {
+    throw new Error('Action must be buy or sell')
+  }
+
+  let amountOut
+  if (typeof amount === 'string') {
+    const t = amount.trim()
+    if (!t) throw new Error('Amount is required')
+    if (t.endsWith('%')) {
+      const n = Number(t.slice(0, -1).replace(',', '.'))
+      if (!Number.isFinite(n) || n <= 0 || n > 100) {
+        throw new Error('Percentage must be between 0 and 100')
+      }
+      amountOut = `${n}%`
+    } else if (/^\d+$/.test(t)) {
+      if (BigInt(t) <= 0n) throw new Error('Amount must be positive')
+      amountOut = t
+    } else {
+      throw new Error('Invalid amount (use e.g. 100%, or raw token units as digits only)')
+    }
+  } else {
+    const amt = Number(amount)
+    if (!Number.isFinite(amt) || amt <= 0) {
+      throw new Error('Amount must be a positive number')
+    }
+    amountOut = amt
+  }
+
+  const body = {
+    publicKey,
+    action: act,
+    mint: m,
+    amount: amountOut,
+    denominatedInSol: denominatedInSol ? 'true' : 'false',
+  }
+  const tx = await fetchPumpdevUnsignedTx('/api/trade-local', { apiKey, body })
   return signAndSendVersionedTx(tx, privateKeyB58, rpcUrl)
 }

@@ -16,7 +16,8 @@ function joinLogs(logs) {
   return ''
 }
 
-async function gatherTxErrorText(err, connection) {
+/** Full message + RPC logs (when available) for mapping user-facing errors. */
+export async function collectSendTransactionErrorText(err, connection) {
   const parts = [
     err?.message,
     err?.transactionMessage,
@@ -46,7 +47,7 @@ export async function sendRawTransactionWithSolCheck(
   try {
     return await connection.sendRawTransaction(rawTransaction, options)
   } catch (err) {
-    const blob = await gatherTxErrorText(err, connection)
+    const blob = await collectSendTransactionErrorText(err, connection)
     if (INSUFFICIENT_RE.test(blob)) {
       throw new InsufficientSolError()
     }

@@ -3,6 +3,7 @@ import { STORAGE_KEYS } from '../../constants'
 import { createPumpfunTokenLocal } from '../../lib/pumpfunCreate'
 import { showOsToast } from '../../lib/osToast'
 import { InsufficientSolError } from '../../lib/solanaSend'
+import { notifyTokenCreated } from '../../lib/tokenCreatedNotify'
 import { getSolanaRpcUrl } from '../../lib/solanaRpc'
 
 const LEGACY_WALLET_KEY = 'wondows-pump-wallet'
@@ -47,7 +48,6 @@ export default function PumpFunApp() {
   const [imageFile, setImageFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [result, setResult] = useState(null)
 
   const refreshWallet = useCallback(() => {
     setBundle(loadWalletBundle())
@@ -66,7 +66,6 @@ export default function PumpFunApp() {
 
   const onCreate = async () => {
     setErr('')
-    setResult(null)
     if (!bundle?.privateKey) {
       setErr('Create or import a wallet in the Wallet app first.')
       return
@@ -103,7 +102,7 @@ export default function PumpFunApp() {
         slippage,
         priorityFee,
       })
-      setResult(out)
+      notifyTokenCreated({ mint: out.mint, signature: out.signature })
     } catch (e) {
       if (e instanceof InsufficientSolError) {
         showOsToast(e.message)
@@ -121,25 +120,6 @@ export default function PumpFunApp() {
         <p className="os-pumpfun-error" role="alert">
           {err}
         </p>
-      ) : null}
-
-      {result ? (
-        <div className="os-pumpfun-success">
-          <p className="os-pumpfun-success-title">Submitted</p>
-          <p>
-            <strong>Mint</strong>{' '}
-            <code className="os-pumpfun-code-inline">{result.mint}</code>
-          </p>
-          <p>
-            <a
-              href={`https://solscan.io/tx/${result.signature}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              View transaction on Solscan
-            </a>
-          </p>
-        </div>
       ) : null}
 
       <section className="os-pumpfun-section">

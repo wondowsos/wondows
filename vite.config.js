@@ -1,5 +1,13 @@
+import dns from 'node:dns'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+
+dns.setDefaultResultOrder('ipv4first')
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const bufferEntry = path.resolve(__dirname, 'node_modules/buffer/index.js')
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -11,6 +19,7 @@ export default defineConfig(({ mode }) => {
       target: 'https://pumpdev.io',
       changeOrigin: true,
       ws: true,
+      /** Strip prefix: /api/pumpdev/api/… → /api/… ; /api/pumpdev/ws → /ws */
       rewrite: (p) => p.replace(/^\/api\/pumpdev/, ''),
     },
   }
@@ -23,6 +32,7 @@ export default defineConfig(({ mode }) => {
       '/api/claim-account',
       '/api/claim-cashback',
       '/api/transfer',
+      '/api/trade-local',
     ].map((prefix) => [
       prefix,
       { target: 'https://pumpdev.io', changeOrigin: true },
@@ -49,6 +59,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    resolve: {
+      alias: {
+        buffer: bufferEntry,
+      },
+    },
+    define: {
+      global: 'globalThis',
+    },
+    optimizeDeps: {
+      include: ['buffer', '@solana/web3.js'],
+    },
     server: {
       host: true, // listen on 0.0.0.0 so LAN can open http://<your-ip>:5173
       proxy,

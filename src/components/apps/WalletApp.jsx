@@ -4,12 +4,19 @@ import { copyTextToClipboard } from '../../lib/clipboard'
 import {
   claimPumpdevCashback,
   claimPumpdevCreatorFees,
+  tradePumpdevLocal,
   transferPumpdevSol,
 } from '../../lib/pumpdevClaims'
 import { PublicKey } from '@solana/web3.js'
 import { createWalletViaHttp } from '../../lib/walletApi'
 import { showOsToast } from '../../lib/osToast'
+import { notifySignedTx } from '../../lib/signedTxNotify'
 import { InsufficientSolError } from '../../lib/solanaSend'
+import {
+  fetchWalletPortfolio,
+  humanTokenAmountToRawString,
+  WSOL_MINT,
+} from '../../lib/walletChainData'
 import { formatRpcHost, getSolanaRpcUrl } from '../../lib/solanaRpc'
 
 const KEY = STORAGE_KEYS.walletBundle
@@ -18,6 +25,7 @@ const LEGACY_WALLET_KEY = 'wondows-pump-wallet'
 const WALLET_TABS = [
   { id: 'balances', label: 'Balances' },
   { id: 'transfer', label: 'Send SOL' },
+  { id: 'trade', label: 'Trade' },
   { id: 'fees', label: 'Creator fees' },
   { id: 'cashback', label: 'Cashback' },
 ]
@@ -92,15 +100,20 @@ export default function WalletApp() {
   const [feeMint, setFeeMint] = useState('')
   const [feesBusy, setFeesBusy] = useState(false)
   const [feesErr, setFeesErr] = useState('')
-  const [feesSig, setFeesSig] = useState('')
   const [cashBusy, setCashBusy] = useState(false)
   const [cashErr, setCashErr] = useState('')
-  const [cashSig, setCashSig] = useState('')
   const [xferTo, setXferTo] = useState('')
   const [xferAmt, setXferAmt] = useState('')
   const [xferBusy, setXferBusy] = useState(false)
   const [xferErr, setXferErr] = useState('')
-  const [xferSig, setXferSig] = useState('')
+  const [tradeMint, setTradeMint] = useState('')
+  /** null until user picks Buy or Sell */
+  const [tradeMode, setTradeMode] = useState(null)
+  const [tradeAmt, setTradeAmt] = useState('')
+  const [tradeSellStyle, setTradeSellStyle] = useState('exact')
+  const [tradeSellPct, setTradeSellPct] = useState('25')
+  const [tradeBusy, setTradeBusy] = useState(false)
+  const [tradeErr, setTradeErr] = useState('')
   const fileRef = useRef(null)
   const tabBaseId = useId()
 
@@ -109,7 +122,6 @@ export default function WalletApp() {
     setChainLoading(true)
     setChainErr('')
     try {
-      const { fetchWalletPortfolio } = await import('../../lib/walletChainData')
       const data = await fetchWalletPortfolio(
         getSolanaRpcUrl(),
         bundle.walletPublicKey,
@@ -133,13 +145,16 @@ export default function WalletApp() {
     setWalletTab('balances')
     setFeeMint('')
     setFeesErr('')
-    setFeesSig('')
     setCashErr('')
-    setCashSig('')
     setXferTo('')
     setXferAmt('')
     setXferErr('')
-    setXferSig('')
+    setTradeMint('')
+    setTradeMode(null)
+    setTradeAmt('')
+    setTradeSellStyle('exact')
+    setTradeSellPct('25')
+    setTradeErr('')
   }, [])
 
   useEffect(() => {
@@ -256,17 +271,29 @@ export default function WalletApp() {
     return `${s.slice(0, head)}…${s.slice(-head)}`
   }
 
+  const resetTradePick = useCallback(() => {
+    setTradeMode(null)
+    setTradeMint('')
+    setTradeAmt('')
+    setTradeSellStyle('exact')
+    setTradeSellPct('25')
+    setTradeErr('')
+  }, [])
+
   const selectTab = (id) => {
+    if (walletTab === 'trade' && id !== 'trade') {
+      resetTradePick()
+    }
     setWalletTab(id)
     setFeesErr('')
     setCashErr('')
     setXferErr('')
+    if (id === 'trade') setTradeErr('')
   }
 
   const onClaimCreatorFees = async () => {
     if (!bundle?.walletPublicKey || !bundle?.privateKey) return
     setFeesErr('')
-    setFeesSig('')
     setFeesBusy(true)
     try {
       const sig = await claimPumpdevCreatorFees({
@@ -276,9 +303,13 @@ export default function WalletApp() {
         privateKeyB58: bundle.privateKey,
         rpcUrl: getSolanaRpcUrl(),
       })
-      setFeesSig(sig)
+      notifySignedTx({
+        title: 'Creator fees claimed',
+        subtitle: 'Transaction confirmed on-chain',
+        signature: sig,
+      })
+      void loadChain()
     } catch (e) {
-      setFeesSig('')
       if (e instanceof InsufficientSolError) {
         showOsToast(e.message)
       } else {
@@ -292,7 +323,6 @@ export default function WalletApp() {
   const onClaimCashback = async () => {
     if (!bundle?.walletPublicKey || !bundle?.privateKey) return
     setCashErr('')
-    setCashSig('')
     setCashBusy(true)
     try {
       const sig = await claimPumpdevCashback({
@@ -301,9 +331,13 @@ export default function WalletApp() {
         privateKeyB58: bundle.privateKey,
         rpcUrl: getSolanaRpcUrl(),
       })
-      setCashSig(sig)
+      notifySignedTx({
+        title: 'Cashback claimed',
+        subtitle: 'Transaction confirmed on-chain',
+        signature: sig,
+      })
+      void loadChain()
     } catch (e) {
-      setCashSig('')
       if (e instanceof InsufficientSolError) {
         showOsToast(e.message)
       } else {
@@ -317,7 +351,6 @@ export default function WalletApp() {
   const onTransferSol = async () => {
     if (!bundle?.walletPublicKey || !bundle?.privateKey) return
     setXferErr('')
-    setXferSig('')
     const to = xferTo.trim()
     if (!to) {
       setXferErr('Enter a recipient address.')
@@ -344,11 +377,14 @@ export default function WalletApp() {
         privateKeyB58: bundle.privateKey,
         rpcUrl: getSolanaRpcUrl(),
       })
-      setXferSig(sig)
+      notifySignedTx({
+        title: 'SOL sent',
+        subtitle: 'Transfer submitted on-chain',
+        signature: sig,
+      })
       setXferAmt('')
       void loadChain()
     } catch (e) {
-      setXferSig('')
       if (e instanceof InsufficientSolError) {
         showOsToast(e.message)
       } else {
@@ -356,6 +392,92 @@ export default function WalletApp() {
       }
     } finally {
       setXferBusy(false)
+    }
+  }
+
+  const onTradeLocal = async () => {
+    if (!bundle?.walletPublicKey || !bundle?.privateKey || !tradeMode) return
+    setTradeErr('')
+    const mint = tradeMint.trim()
+    if (!mint) {
+      setTradeErr('Enter or select a token mint.')
+      return
+    }
+    try {
+      new PublicKey(mint)
+    } catch {
+      setTradeErr('Mint is not a valid Solana address.')
+      return
+    }
+    if (!bundle.apiKey?.trim()) {
+      setTradeErr(
+        'This wallet bundle has no API key. Import JSON that includes apiKey or create a new wallet.',
+      )
+      return
+    }
+
+    let amountPayload
+    let denominatedInSol
+
+    if (tradeMode === 'buy') {
+      denominatedInSol = true
+      amountPayload = Number(String(tradeAmt).replace(',', '.'))
+      if (!Number.isFinite(amountPayload) || amountPayload <= 0) {
+        setTradeErr('Enter a positive SOL amount.')
+        return
+      }
+    } else {
+      denominatedInSol = false
+      if (tradeSellStyle === 'all') {
+        /** PumpDev expects `'100%'` so the server uses full on-chain balance (not a raw count). */
+        amountPayload = '100%'
+      } else if (tradeSellStyle === 'pct') {
+        const n = Number(String(tradeSellPct).replace(',', '.'))
+        if (!Number.isFinite(n) || n <= 0 || n > 100) {
+          setTradeErr('Enter a percentage between 0.01 and 100.')
+          return
+        }
+        amountPayload = `${n}%`
+      } else {
+        let decimals = 6
+        const row = chain?.tokens?.find((t) => t.mint === mint)
+        if (row && typeof row.decimals === 'number') decimals = row.decimals
+        try {
+          /** Numeric sells use raw base units per PumpDev docs, not human token float. */
+          amountPayload = humanTokenAmountToRawString(tradeAmt, decimals)
+        } catch (e) {
+          setTradeErr(e?.message ?? 'Invalid token amount.')
+          return
+        }
+      }
+    }
+
+    setTradeBusy(true)
+    try {
+      const sig = await tradePumpdevLocal({
+        publicKey: bundle.walletPublicKey,
+        action: tradeMode,
+        mint,
+        amount: amountPayload,
+        denominatedInSol,
+        apiKey: bundle.apiKey,
+        privateKeyB58: bundle.privateKey,
+        rpcUrl: getSolanaRpcUrl(),
+      })
+      notifySignedTx({
+        title: tradeMode === 'buy' ? 'Buy submitted' : 'Sell submitted',
+        subtitle: 'Transaction confirmed on-chain',
+        signature: sig,
+      })
+      void loadChain()
+    } catch (e) {
+      if (e instanceof InsufficientSolError) {
+        showOsToast(e.message)
+      } else {
+        setTradeErr(e?.message ?? 'Trade failed.')
+      }
+    } finally {
+      setTradeBusy(false)
     }
   }
 
@@ -650,18 +772,6 @@ export default function WalletApp() {
                     {xferErr}
                   </p>
                 ) : null}
-                {xferSig ? (
-                  <p className="os-wallet-claim-success" role="status">
-                    Submitted —{' '}
-                    <a
-                      href={`https://solscan.io/tx/${xferSig}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      view on Solscan
-                    </a>
-                  </p>
-                ) : null}
                 <div className="os-wallet-actions">
                   <button
                     type="button"
@@ -672,6 +782,295 @@ export default function WalletApp() {
                     {xferBusy ? 'Working…' : 'Send SOL'}
                   </button>
                 </div>
+              </>
+            ) : null}
+
+            {walletTab === 'trade' ? (
+              <>
+                <p className="os-wallet-claim-blurb">Buy and sell pump.fun tokens.</p>
+                {!bundle.apiKey?.trim() ? (
+                  <p className="os-wallet-msg" role="status">
+                    Trading needs a PumpDev <code className="os-wallet-intro-code">apiKey</code> in
+                    your wallet JSON. Create a new wallet or import a bundle that includes it.
+                  </p>
+                ) : null}
+
+                {!tradeMode ? (
+                  <div className="os-wallet-trade-pick">
+                    <button
+                      type="button"
+                      className="os-wallet-primary os-wallet-trade-pick-btn"
+                      disabled={!bundle.apiKey?.trim()}
+                      onClick={() => {
+                        setTradeMode('buy')
+                        setTradeMint('')
+                        setTradeAmt('')
+                        setTradeErr('')
+                      }}
+                    >
+                      Buy
+                    </button>
+                    <button
+                      type="button"
+                      className="os-wallet-secondary os-wallet-trade-pick-btn"
+                      disabled={!bundle.apiKey?.trim()}
+                      onClick={() => {
+                        setTradeMode('sell')
+                        setTradeMint('')
+                        setTradeAmt('')
+                        setTradeSellStyle('exact')
+                        setTradeSellPct('25')
+                        setTradeErr('')
+                        void loadChain()
+                      }}
+                    >
+                      Sell
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="os-wallet-trade-back"
+                      onClick={() => resetTradePick()}
+                    >
+                      ← Change side
+                    </button>
+
+                    {tradeMode === 'buy' ? (
+                      <>
+                        <div className="os-wallet-claim-field">
+                          <label
+                            className="os-wallet-claim-label"
+                            htmlFor={`${tabBaseId}-trade-mint`}
+                          >
+                            Token mint
+                          </label>
+                          <input
+                            id={`${tabBaseId}-trade-mint`}
+                            className="os-wallet-claim-input"
+                            value={tradeMint}
+                            onChange={(e) => setTradeMint(e.target.value)}
+                            placeholder="Pump.fun token mint (base58)"
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                        </div>
+                        <div className="os-wallet-claim-field">
+                          <label
+                            className="os-wallet-claim-label"
+                            htmlFor={`${tabBaseId}-trade-amt-buy`}
+                          >
+                            Amount (SOL)
+                          </label>
+                          <input
+                            id={`${tabBaseId}-trade-amt-buy`}
+                            className="os-wallet-claim-input"
+                            type="text"
+                            inputMode="decimal"
+                            value={tradeAmt}
+                            onChange={(e) => setTradeAmt(e.target.value)}
+                            placeholder="e.g. 0.1"
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                        </div>
+                      </>
+                    ) : null}
+
+                    {tradeMode === 'sell' ? (
+                      <>
+                        <div className="os-wallet-trade-holdings-head">
+                          <span className="os-wallet-claim-label" id={`${tabBaseId}-holdings`}>
+                            Your tokens
+                          </span>
+                          <button
+                            type="button"
+                            className="os-wallet-mini"
+                            title={formatRpcHost(getSolanaRpcUrl())}
+                            onClick={() => void loadChain()}
+                            disabled={chainLoading}
+                          >
+                            {chainLoading ? '…' : 'Refresh'}
+                          </button>
+                        </div>
+                        {chainErr ? (
+                          <p className="os-wallet-error" role="alert">
+                            {chainErr}
+                          </p>
+                        ) : null}
+                        {chainLoading && !chain ? (
+                          <p className="os-wallet-claim-hint">Loading balances…</p>
+                        ) : null}
+                        <div
+                          className="os-wallet-trade-holdings"
+                          role="listbox"
+                          aria-labelledby={`${tabBaseId}-holdings`}
+                          aria-label="Tap a token to set the mint for selling"
+                        >
+                          {(chain?.tokens ?? [])
+                            .filter((t) => t.mint !== WSOL_MINT)
+                            .map((t) => (
+                              <button
+                                key={t.mint}
+                                type="button"
+                                role="option"
+                                aria-selected={tradeMint.trim() === t.mint}
+                                className={
+                                  tradeMint.trim() === t.mint
+                                    ? 'os-wallet-trade-holding-row os-wallet-trade-holding-row--selected'
+                                    : 'os-wallet-trade-holding-row'
+                                }
+                                onClick={() => {
+                                  setTradeMint(t.mint)
+                                  setTradeErr('')
+                                }}
+                              >
+                                <span className="os-wallet-trade-holding-icon">
+                                  <WalletTokenIcon
+                                    imageUrl={t.imageUrl}
+                                    fallbackChar={t.symbol || t.label}
+                                  />
+                                </span>
+                                <span className="os-wallet-trade-holding-meta">
+                                  <span className="os-wallet-trade-holding-name">
+                                    {t.name || t.symbol || t.label}
+                                  </span>
+                                  <code className="os-wallet-trade-holding-mint" title={t.mint}>
+                                    {t.mint.slice(0, 6)}…{t.mint.slice(-4)}
+                                  </code>
+                                </span>
+                                <span className="os-wallet-trade-holding-bal">{t.uiAmountString}</span>
+                              </button>
+                            ))}
+                        </div>
+                        {chain && !chainLoading && (chain.tokens ?? []).filter((x) => x.mint !== WSOL_MINT).length === 0 ? (
+                          <p className="os-wallet-claim-hint">
+                            No SPL balances yet (wrapped SOL is hidden here). You can still paste a
+                            mint below and use <strong>Exact token amount</strong> if you know your
+                            balance.
+                          </p>
+                        ) : null}
+
+                        <div className="os-wallet-claim-field">
+                          <label
+                            className="os-wallet-claim-label"
+                            htmlFor={`${tabBaseId}-trade-mint-sell`}
+                          >
+                            Token mint
+                          </label>
+                          <input
+                            id={`${tabBaseId}-trade-mint-sell`}
+                            className="os-wallet-claim-input"
+                            value={tradeMint}
+                            onChange={(e) => setTradeMint(e.target.value)}
+                            placeholder="Or paste mint (base58)"
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                        </div>
+
+                        <fieldset className="os-wallet-sell-modes">
+                          <legend className="os-wallet-sell-modes-legend">Sell size</legend>
+                          <label className="os-wallet-sell-mode-opt">
+                            <input
+                              type="radio"
+                              name={`${tabBaseId}-sell-style`}
+                              checked={tradeSellStyle === 'all'}
+                              onChange={() => setTradeSellStyle('all')}
+                            />
+                            <span>Sell all</span>
+                          </label>
+                          <label className="os-wallet-sell-mode-opt">
+                            <input
+                              type="radio"
+                              name={`${tabBaseId}-sell-style`}
+                              checked={tradeSellStyle === 'pct'}
+                              onChange={() => setTradeSellStyle('pct')}
+                            />
+                            <span>Sell % of balance</span>
+                          </label>
+                          {tradeSellStyle === 'pct' ? (
+                            <div className="os-wallet-claim-field os-wallet-claim-field--nested">
+                              <label
+                                className="os-wallet-claim-label"
+                                htmlFor={`${tabBaseId}-sell-pct`}
+                              >
+                                Percent (0.01–100)
+                              </label>
+                              <input
+                                id={`${tabBaseId}-sell-pct`}
+                                className="os-wallet-claim-input"
+                                type="text"
+                                inputMode="decimal"
+                                value={tradeSellPct}
+                                onChange={(e) => setTradeSellPct(e.target.value)}
+                                placeholder="e.g. 25"
+                                autoComplete="off"
+                                spellCheck={false}
+                              />
+                            </div>
+                          ) : null}
+                          <label className="os-wallet-sell-mode-opt">
+                            <input
+                              type="radio"
+                              name={`${tabBaseId}-sell-style`}
+                              checked={tradeSellStyle === 'exact'}
+                              onChange={() => setTradeSellStyle('exact')}
+                            />
+                            <span>Exact token amount</span>
+                          </label>
+                          {tradeSellStyle === 'exact' ? (
+                            <div className="os-wallet-claim-field os-wallet-claim-field--nested">
+                              <label
+                                className="os-wallet-claim-label"
+                                htmlFor={`${tabBaseId}-trade-amt-sell`}
+                              >
+                                Amount (tokens)
+                              </label>
+                              <input
+                                id={`${tabBaseId}-trade-amt-sell`}
+                                className="os-wallet-claim-input"
+                                type="text"
+                                inputMode="decimal"
+                                value={tradeAmt}
+                                onChange={(e) => setTradeAmt(e.target.value)}
+                                placeholder="e.g. 1000"
+                                autoComplete="off"
+                                spellCheck={false}
+                              />
+                              <p className="os-wallet-claim-hint">
+                                Enter the token amount as you see it in your balance. Decimals are
+                                taken from the list when this mint is selected; otherwise 6 is
+                                assumed.
+                              </p>
+                            </div>
+                          ) : null}
+                        </fieldset>
+                      </>
+                    ) : null}
+
+                    {tradeErr ? (
+                      <p className="os-wallet-error" role="alert">
+                        {tradeErr}
+                      </p>
+                    ) : null}
+                    <div className="os-wallet-actions">
+                      <button
+                        type="button"
+                        className="os-wallet-primary"
+                        onClick={() => void onTradeLocal()}
+                        disabled={tradeBusy || !bundle.apiKey?.trim() || !tradeMode}
+                      >
+                        {tradeBusy
+                          ? 'Working…'
+                          : tradeMode === 'buy'
+                            ? 'Buy'
+                            : 'Sell'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             ) : null}
 
@@ -707,18 +1106,6 @@ export default function WalletApp() {
                     {feesErr}
                   </p>
                 ) : null}
-                {feesSig ? (
-                  <p className="os-wallet-claim-success" role="status">
-                    Submitted —{' '}
-                    <a
-                      href={`https://solscan.io/tx/${feesSig}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      view on Solscan
-                    </a>
-                  </p>
-                ) : null}
                 <div className="os-wallet-actions">
                   <button
                     type="button"
@@ -744,18 +1131,6 @@ export default function WalletApp() {
                 {cashErr ? (
                   <p className="os-wallet-error" role="alert">
                     {cashErr}
-                  </p>
-                ) : null}
-                {cashSig ? (
-                  <p className="os-wallet-claim-success" role="status">
-                    Submitted —{' '}
-                    <a
-                      href={`https://solscan.io/tx/${cashSig}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      view on Solscan
-                    </a>
                   </p>
                 ) : null}
                 <div className="os-wallet-actions">

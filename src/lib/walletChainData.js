@@ -7,7 +7,7 @@ const TOKEN_2022 = new PublicKey(
   'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
 )
 
-const WSOL_MINT = 'So11111111111111111111111111111111111111112'
+export const WSOL_MINT = 'So11111111111111111111111111111111111111112'
 
 const KNOWN_MINTS = {
   [WSOL_MINT]: 'Wrapped SOL',
@@ -48,7 +48,7 @@ async function mapInBatches(items, batchSize, mapper) {
   return out
 }
 
-function formatRawTokenAmount(raw, decimals) {
+export function formatRawTokenAmount(raw, decimals) {
   if (decimals === 0) return raw.toString()
   const v = raw < 0n ? -raw : raw
   const base = 10n ** BigInt(decimals)
@@ -60,6 +60,30 @@ function formatRawTokenAmount(raw, decimals) {
     .replace(/0+$/, '')
   if (!fracStr) return (raw < 0n ? '-' : '') + whole.toString()
   return (raw < 0n ? '-' : '') + `${whole.toString()}.${fracStr}`
+}
+
+/**
+ * PumpDev `/api/trade-local` expects exact sell size as raw base units (integer string), not UI amount.
+ * @param {string} uiAmountStr e.g. "1234.56"
+ * @param {number} decimals token decimals (0–255)
+ * @returns {string} decimal string of raw amount (no leading +)
+ */
+export function humanTokenAmountToRawString(uiAmountStr, decimals) {
+  const d = Math.max(0, Math.min(255, Number(decimals) | 0))
+  const s0 = String(uiAmountStr ?? '')
+    .trim()
+    .replace(',', '.')
+    .replace(/^\./, '0.')
+  if (!s0 || !/^\d+(\.\d*)?$/.test(s0)) {
+    throw new Error('Invalid token amount')
+  }
+  const [intRaw, fracRaw = ''] = s0.split('.')
+  const intPart = intRaw === '' ? '0' : intRaw
+  const frac = fracRaw.slice(0, d).padEnd(d, '0')
+  const base = 10n ** BigInt(d)
+  const raw = BigInt(intPart) * base + BigInt(frac === '' ? '0' : frac)
+  if (raw <= 0n) throw new Error('Amount must be positive')
+  return raw.toString()
 }
 
 /**
@@ -136,6 +160,8 @@ export async function fetchWalletPortfolio(rpcUrl, walletPublicKeyBase58) {
       symbol,
       imageUrl,
       uiAmountString: row.uiAmountString,
+      /** Base units as decimal string; use for sell % / sell-all math */
+      raw: row.raw.toString(),
       decimals: row.decimals,
       program: row.program,
     }
