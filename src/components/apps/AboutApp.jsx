@@ -3,6 +3,23 @@ export default function AboutApp() {
     <div className="os-app-about">
       <div className="logo-big">W</div>
       <h2>Wondows</h2>
+      <p style={{ marginTop: 8 }}>
+        <a
+          href="https://github.com/wondowsos/wondows"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          github.com/wondowsos/wondows
+        </a>
+        {' · '}
+        <a
+          href="https://x.com/WondowsOS"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          x.com/WondowsOS
+        </a>
+      </p>
       <p className="os-about-vibes">
         vibe shift + tides turning + stars aligning + balls tingling + this time
         is different + supercycle (real) + beachball underwater + golden catchup
