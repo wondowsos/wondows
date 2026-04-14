@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { STORAGE_KEYS } from '../../constants'
 import { createPumpfunTokenLocal } from '../../lib/pumpfunCreate'
+import { showOsToast } from '../../lib/osToast'
+import { InsufficientSolError } from '../../lib/solanaSend'
 import { getSolanaRpcUrl } from '../../lib/solanaRpc'
 
 const LEGACY_WALLET_KEY = 'wondows-pump-wallet'
@@ -103,7 +105,11 @@ export default function PumpFunApp() {
       })
       setResult(out)
     } catch (e) {
-      setErr(e?.message ?? 'Something went wrong.')
+      if (e instanceof InsufficientSolError) {
+        showOsToast(e.message)
+      } else {
+        setErr(e?.message ?? 'Something went wrong.')
+      }
     } finally {
       setBusy(false)
     }

@@ -10,9 +10,24 @@ export default defineConfig(({ mode }) => {
     '/api/pumpdev': {
       target: 'https://pumpdev.io',
       changeOrigin: true,
+      ws: true,
       rewrite: (p) => p.replace(/^\/api\/pumpdev/, ''),
     },
   }
+
+  /** Same-origin paths if the client base is wrong (e.g. env `/` → empty + `/api/create`). */
+  const pumpdevRestProxy = Object.fromEntries(
+    [
+      '/api/create',
+      '/api/wallet',
+      '/api/claim-account',
+      '/api/claim-cashback',
+      '/api/transfer',
+    ].map((prefix) => [
+      prefix,
+      { target: 'https://pumpdev.io', changeOrigin: true },
+    ]),
+  )
 
   const pinataProxy = {
     '/api/pinata': {
@@ -30,7 +45,7 @@ export default defineConfig(({ mode }) => {
     },
   }
 
-  const proxy = { ...pinataProxy, ...pumpdevProxy }
+  const proxy = { ...pinataProxy, ...pumpdevRestProxy, ...pumpdevProxy }
 
   return {
     plugins: [react()],

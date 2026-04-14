@@ -34,6 +34,8 @@ export default function GlobalShortcuts() {
         m: () => openWindow('mines'),
         d: () => openWindow('paint'),
         l: () => openWindow('clock'),
+        a: () => openWindow('atm'),
+        k: () => openWindow('newpairs'),
       }
 
       const fn = map[k]

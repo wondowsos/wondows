@@ -1,6 +1,7 @@
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
 import bs58 from 'bs58'
 import { getPumpdevApiBase } from './pumpdevConfig'
+import { sendRawTransactionWithSolCheck } from './solanaSend'
 
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/'
 
@@ -151,10 +152,11 @@ export async function createPumpfunTokenLocal({
   tx.sign([mintKeypair, signerKeypair])
 
   const connection = new Connection(rpcUrl, 'confirmed')
-  const sig = await connection.sendRawTransaction(tx.serialize(), {
-    skipPreflight: false,
-    maxRetries: 3,
-  })
+  const sig = await sendRawTransactionWithSolCheck(
+    connection,
+    tx.serialize(),
+    { skipPreflight: false, maxRetries: 3 },
+  )
 
   return {
     signature: sig,

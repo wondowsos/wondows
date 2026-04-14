@@ -14,6 +14,8 @@ import PaintApp from './apps/PaintApp'
 import MinesApp from './apps/MinesApp'
 import ClockApp from './apps/ClockApp'
 import MeteoraApp from './apps/MeteoraApp'
+import AtmApp from './apps/AtmApp'
+import NewPairsApp from './apps/NewPairsApp'
 
 const PumpFunApp = lazy(() => import('./apps/PumpFunApp'))
 
@@ -49,6 +51,10 @@ function WindowContent({ type, payload, windowId }) {
       return <ClockApp />
     case 'meteora':
       return <MeteoraApp />
+    case 'atm':
+      return <AtmApp />
+    case 'newpairs':
+      return <NewPairsApp />
     default:
       return null
   }
@@ -87,6 +93,10 @@ function TitleIcon({ type }) {
       return <span style={{ fontSize: 12 }}>🕐</span>
     case 'meteora':
       return <span style={{ fontSize: 12 }}>〰</span>
+    case 'atm':
+      return <span style={{ fontSize: 12 }}>🤖</span>
+    case 'newpairs':
+      return <span style={{ fontSize: 12 }}>✨</span>
     default:
       return null
   }

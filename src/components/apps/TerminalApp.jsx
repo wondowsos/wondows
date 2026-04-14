@@ -39,6 +39,12 @@ const START_ALIASES = {
   token: 'pumpfun',
   pill: 'pumpfun',
   meteora: 'meteora',
+  atm: 'atm',
+  bot: 'atm',
+  trading: 'atm',
+  newpairs: 'newpairs',
+  pairs: 'newpairs',
+  stream: 'newpairs',
 }
 
 export default function TerminalApp() {
@@ -66,7 +72,7 @@ export default function TerminalApp() {
 
       if (lower === 'help') {
         push(
-          'HELP CLS VER DATE ECHO\r\nDIR | LS   CD   TYPE | CAT   MD | MKDIR   DEL | RM\r\nOPEN <path>   START <app>   EMPTYTRASH\r\nTHEME <id>   WALLPAPER <id>\r\nApps: notepad browse explorer calc wallet pumpfun meteora settings terminal about',
+          'HELP CLS VER DATE ECHO\r\nDIR | LS   CD   TYPE | CAT   MD | MKDIR   DEL | RM\r\nOPEN <path>   START <app>   EMPTYTRASH\r\nTHEME <id>   WALLPAPER <id>\r\nApps: notepad browse explorer calc wallet pumpfun meteora atm newpairs settings terminal about',
         )
         return
       }
@@ -194,7 +200,7 @@ export default function TerminalApp() {
         const arg = lower.slice(6).trim()
         const app = START_ALIASES[arg]
         if (!app) {
-          push(`Unknown app "${arg}". Try: notepad, browse, explorer, wallet, pumpfun, meteora, calc, …`)
+          push(`Unknown app "${arg}". Try: notepad, browse, explorer, wallet, pumpfun, meteora, atm, newpairs, calc, …`)
           return
         }
         if (app === 'explorer') openWindow('explorer', { path: cwd })

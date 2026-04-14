@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Bomb,
+  Bot,
   Calculator,
   Clock,
   FileText,
@@ -11,6 +12,7 @@ import {
   Palette,
   Pill,
   Settings,
+  Sparkles,
   Terminal,
   Volume2,
   Wallet,
@@ -47,6 +49,8 @@ const TASKBAR_ICONS = {
   calculator: Calculator,
   clock: Clock,
   meteora: Waves,
+  atm: Bot,
+  newpairs: Sparkles,
 }
 
 function CalendarPop({ date, onClose }) {

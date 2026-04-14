@@ -1,6 +1,7 @@
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
 import bs58 from 'bs58'
 import { getPumpdevApiBase } from './pumpdevConfig'
+import { sendRawTransactionWithSolCheck } from './solanaSend'
 
 function keypairFromPrivateKeyB58(b58) {
   const trimmed = String(b58 ?? '').trim()
@@ -20,6 +21,7 @@ function keypairFromPrivateKeyB58(b58) {
  * POST to a PumpDev endpoint that returns a serialized VersionedTransaction (octet-stream).
  * @see https://pumpdev.io/claim-fees — /api/claim-account
  * @see https://pumpdev.io/claim-cashback — /api/claim-cashback
+ * @see https://pumpdev.io/transfer — /api/transfer
  */
 async function fetchPumpdevUnsignedTx(path, { apiKey, body }) {
   const base = getPumpdevApiBase()
@@ -64,10 +66,11 @@ async function signAndSendVersionedTx(tx, privateKeyB58, rpcUrl) {
   const signer = keypairFromPrivateKeyB58(privateKeyB58)
   tx.sign([signer])
   const connection = new Connection(rpcUrl, 'confirmed')
-  return connection.sendRawTransaction(tx.serialize(), {
-    skipPreflight: false,
-    maxRetries: 3,
-  })
+  return sendRawTransactionWithSolCheck(
+    connection,
+    tx.serialize(),
+    { skipPreflight: false, maxRetries: 3 },
+  )
 }
 
 /**
@@ -98,6 +101,31 @@ export async function claimPumpdevCashback({
   const tx = await fetchPumpdevUnsignedTx('/api/claim-cashback', {
     apiKey,
     body: { publicKey },
+  })
+  return signAndSendVersionedTx(tx, privateKeyB58, rpcUrl)
+}
+
+/**
+ * Transfer SOL via PumpDev (unsigned tx from API, sign locally, send on your RPC).
+ * @see https://pumpdev.io/transfer
+ */
+export async function transferPumpdevSol({
+  publicKey,
+  recipient,
+  amount,
+  apiKey,
+  privateKeyB58,
+  rpcUrl,
+}) {
+  const to = recipient?.trim()
+  if (!to) throw new Error('Recipient address is required')
+  const amt = Number(amount)
+  if (!Number.isFinite(amt) || amt <= 0) {
+    throw new Error('Amount must be a positive number')
+  }
+  const tx = await fetchPumpdevUnsignedTx('/api/transfer', {
+    apiKey,
+    body: { publicKey, recipient: to, amount: amt },
   })
   return signAndSendVersionedTx(tx, privateKeyB58, rpcUrl)
 }

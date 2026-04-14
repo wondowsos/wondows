@@ -18,6 +18,8 @@ export const DEFAULT_DESKTOP_LABELS = {
   settings: 'Settings',
   terminal: 'Terminal',
   meteora: 'Meteora',
+  atm: 'ATM',
+  newpairs: 'New pairs',
 }
 
 const MAX_LEN = 48

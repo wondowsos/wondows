@@ -1,6 +1,7 @@
 import { cloneElement, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Bomb,
+  Bot,
   Calculator,
   Clock,
   FileText,
@@ -10,6 +11,7 @@ import {
   Palette,
   Pill,
   Settings,
+  Sparkles,
   Terminal,
   Trash2,
   Wallet,
@@ -45,6 +47,8 @@ const TILE = {
   mines: '#5d4037',
   clock: '#5c6bc0',
   meteora: '#26a69a',
+  atm: '#ffb300',
+  newpairs: '#7c4dff',
 }
 
 function isTypingTarget(el) {
@@ -176,6 +180,8 @@ export default function Desktop() {
       settings: () => openWindow('settings'),
       terminal: () => openWindow('terminal'),
       meteora: () => openWindow('meteora'),
+      atm: () => openWindow('atm'),
+      newpairs: () => openWindow('newpairs'),
     }),
     [openWindow],
   )
@@ -407,6 +413,28 @@ export default function Desktop() {
           onContextMenu={onCtx}
         >
           <Waves />
+        </DesktopIcon>
+        <DesktopIcon
+          iconId="atm"
+          label={labels.atm}
+          tileBg={TILE.atm}
+          selected={selectedId === 'atm'}
+          onSelect={setSelectedId}
+          onOpen={() => openShortcut('atm')}
+          onContextMenu={onCtx}
+        >
+          <Bot />
+        </DesktopIcon>
+        <DesktopIcon
+          iconId="newpairs"
+          label={labels.newpairs}
+          tileBg={TILE.newpairs}
+          selected={selectedId === 'newpairs'}
+          onSelect={setSelectedId}
+          onOpen={() => openShortcut('newpairs')}
+          onContextMenu={onCtx}
+        >
+          <Sparkles />
         </DesktopIcon>
         {deskFilePaths.map((path) => {
           const iconId = fileDesktopIconId(path)

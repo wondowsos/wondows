@@ -52,6 +52,8 @@ const DEFAULTS = {
   mines: { w: 420, h: 560, title: 'Minesweeper' },
   clock: { w: 380, h: 440, title: 'Clock' },
   meteora: { w: 420, h: 280, title: 'Meteora' },
+  atm: { w: 420, h: 300, title: 'ATM' },
+  newpairs: { w: 640, h: 560, title: 'New pairs' },
 }
 
 function windowTitle(type, def, payload) {

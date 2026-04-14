@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   Bomb,
+  Bot,
   Calculator,
   Clock,
   FileText,
@@ -11,6 +12,7 @@ import {
   Palette,
   Pill,
   Settings,
+  Sparkles,
   Terminal,
   User,
   Wallet,
@@ -105,6 +107,20 @@ const LAUNCH = [
     bg: '#26a69a',
   },
   {
+    type: 'atm',
+    label: 'ATM',
+    search: 'atm bot trading automated solana sniper',
+    icon: Bot,
+    bg: '#ffb300',
+  },
+  {
+    type: 'newpairs',
+    label: 'New pairs',
+    search: 'new pair token pump websocket stream launch mint realtime',
+    icon: Sparkles,
+    bg: '#7c4dff',
+  },
+  {
     type: 'about',
     label: 'About',
     search: 'info help version',
@@ -150,6 +166,12 @@ const RUN_WORDS = {
   pill: 'pumpfun',
   meteora: 'meteora',
   dlmm: 'meteora',
+  atm: 'atm',
+  bot: 'atm',
+  trading: 'atm',
+  newpairs: 'newpairs',
+  pairs: 'newpairs',
+  stream: 'newpairs',
   paint: 'paint',
   draw: 'paint',
   scribble: 'paint',
@@ -251,8 +273,8 @@ export default function StartMenu() {
           <kbd>notepad</kbd>
         </span>
         <span className="os-start-hint-line os-start-hint-kbd">
-          Alt+Shift: E F N B T C S W P M D L — files, root, notes, web, term,
-          calc, settings, wallet, pump lab, mines, paint, clock
+          Alt+Shift: E F N B T C S W P M D L A K — files, root, notes, web, term,
+          calc, settings, wallet, pump lab, mines, paint, clock, ATM, new pairs
         </span>
       </div>
       <div className="os-start-footer">

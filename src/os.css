@@ -978,20 +978,16 @@
   text-align: center;
 }
 
-.os-app-about .logo-big {
+.os-app-about .os-about-logo {
+  display: block;
   width: 88px;
   height: 88px;
   margin: 0 auto 18px;
+  object-fit: contain;
   border-radius: 0;
-  background: #ffeb3b;
   border: 5px solid #111;
   box-shadow: 5px 5px 0 #111;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--w-accent);
-  font-size: 44px;
-  font-weight: 700;
+  background: #ffeb3b;
 }
 
 .os-app-about h2 {
@@ -1049,6 +1045,188 @@
   font-weight: 700;
   font-style: italic;
   color: var(--w-text-muted, #666);
+}
+
+.os-app-atm {
+  box-sizing: border-box;
+  min-height: 200px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--w-text);
+}
+
+.os-atm-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: underline double #ffb300;
+}
+
+.os-atm-tagline {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--w-text-muted, #666);
+  letter-spacing: 0.02em;
+}
+
+.os-atm-soon {
+  margin: 8px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  font-style: italic;
+  color: var(--w-text-muted, #666);
+}
+
+/* --- New pairs (PumpDev WS) --- */
+.os-app-newpairs {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 200px;
+  padding: 12px 14px 14px;
+  color: var(--w-text);
+}
+
+.os-newpairs-status {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.os-newpairs-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--w-text-muted, #666);
+}
+
+.os-newpairs-hint a {
+  color: var(--w-accent);
+}
+
+.os-newpairs-error {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #c62828;
+}
+
+.os-newpairs-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--w-border, #ccc);
+  border-radius: 4px;
+  background: var(--w-surface-2, rgba(0, 0, 0, 0.04));
+}
+
+.os-newpairs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.os-newpairs-table th,
+.os-newpairs-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--w-border, #ddd);
+  vertical-align: top;
+}
+
+.os-newpairs-table th {
+  position: sticky;
+  top: 0;
+  background: var(--w-surface, #fff);
+  font-weight: 700;
+  z-index: 1;
+}
+
+.os-newpairs-th-thumb {
+  width: 44px;
+}
+
+.os-newpairs-td-thumb {
+  width: 44px;
+  padding: 4px 6px !important;
+  vertical-align: middle !important;
+}
+
+.os-newpairs-thumb-img {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--w-surface-2, rgba(0, 0, 0, 0.06));
+}
+
+.os-newpairs-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--w-text-muted, #666);
+  background: var(--w-surface-2, rgba(0, 0, 0, 0.08));
+}
+
+.os-newpairs-empty {
+  text-align: center;
+  color: var(--w-text-muted, #666);
+  font-style: italic;
+  padding: 24px 12px !important;
+}
+
+.os-newpairs-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.os-newpairs-symbol {
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.os-newpairs-num {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.os-newpairs-actions {
+  white-space: nowrap;
+}
+
+.os-newpairs-actions .os-wallet-mini {
+  margin-right: 6px;
+}
+
+.os-newpairs-solscan {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--w-accent);
+  text-decoration: none;
+}
+
+.os-newpairs-solscan:hover {
+  text-decoration: underline;
 }
 
 /* --- Desktop icon badge --- */
@@ -3070,5 +3248,34 @@
   box-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* --- Ephemeral toast (e.g. low SOL) --- */
+.os-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  z-index: 2147482000;
+  max-width: min(340px, calc(100vw - 24px));
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  color: #fff;
+  background: rgba(28, 28, 32, 0.94);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 10px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.os-toast--visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 

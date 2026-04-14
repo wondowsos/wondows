@@ -1,7 +1,14 @@
 export default function AboutApp() {
   return (
     <div className="os-app-about">
-      <div className="logo-big">W</div>
+      <img
+        className="os-about-logo"
+        src="/wondowsic.png"
+        alt=""
+        width={88}
+        height={88}
+        decoding="async"
+      />
       <h2>Wondows</h2>
       <p style={{ marginTop: 8 }}>
         <a
@@ -35,9 +42,10 @@ export default function AboutApp() {
         for copy and paste.
       </p>
       <p style={{ marginTop: 14 }}>
-        <strong>Keyboard shortcuts:</strong> Alt+Shift+E/F/N/B/T/C/S/W/P/M/D/L
+        <strong>Keyboard shortcuts:</strong> Alt+Shift+E/F/N/B/T/C/S/W/P/M/D/L/A/K
         open File Explorer, This PC, Notepad, Browser, Terminal, Calculator,
-        Settings, Wallet, Token Studio, Minesweeper, Paint, and Clock.
+        Settings, Wallet, Token Studio, Minesweeper, Paint, Clock, ATM, and New
+        pairs.
       </p>
       <p style={{ marginTop: 14 }}>
         <strong>Wallet:</strong> Create a Solana wallet and API key, or import

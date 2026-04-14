@@ -4,8 +4,12 @@ import { copyTextToClipboard } from '../../lib/clipboard'
 import {
   claimPumpdevCashback,
   claimPumpdevCreatorFees,
+  transferPumpdevSol,
 } from '../../lib/pumpdevClaims'
+import { PublicKey } from '@solana/web3.js'
 import { createWalletViaHttp } from '../../lib/walletApi'
+import { showOsToast } from '../../lib/osToast'
+import { InsufficientSolError } from '../../lib/solanaSend'
 import { formatRpcHost, getSolanaRpcUrl } from '../../lib/solanaRpc'
 
 const KEY = STORAGE_KEYS.walletBundle
@@ -13,6 +17,7 @@ const LEGACY_WALLET_KEY = 'wondows-pump-wallet'
 
 const WALLET_TABS = [
   { id: 'balances', label: 'Balances' },
+  { id: 'transfer', label: 'Send SOL' },
   { id: 'fees', label: 'Creator fees' },
   { id: 'cashback', label: 'Cashback' },
 ]
@@ -91,6 +96,11 @@ export default function WalletApp() {
   const [cashBusy, setCashBusy] = useState(false)
   const [cashErr, setCashErr] = useState('')
   const [cashSig, setCashSig] = useState('')
+  const [xferTo, setXferTo] = useState('')
+  const [xferAmt, setXferAmt] = useState('')
+  const [xferBusy, setXferBusy] = useState(false)
+  const [xferErr, setXferErr] = useState('')
+  const [xferSig, setXferSig] = useState('')
   const fileRef = useRef(null)
   const tabBaseId = useId()
 
@@ -126,6 +136,10 @@ export default function WalletApp() {
     setFeesSig('')
     setCashErr('')
     setCashSig('')
+    setXferTo('')
+    setXferAmt('')
+    setXferErr('')
+    setXferSig('')
   }, [])
 
   useEffect(() => {
@@ -246,6 +260,7 @@ export default function WalletApp() {
     setWalletTab(id)
     setFeesErr('')
     setCashErr('')
+    setXferErr('')
   }
 
   const onClaimCreatorFees = async () => {
@@ -264,7 +279,11 @@ export default function WalletApp() {
       setFeesSig(sig)
     } catch (e) {
       setFeesSig('')
-      setFeesErr(e?.message ?? 'Could not claim creator fees.')
+      if (e instanceof InsufficientSolError) {
+        showOsToast(e.message)
+      } else {
+        setFeesErr(e?.message ?? 'Could not claim creator fees.')
+      }
     } finally {
       setFeesBusy(false)
     }
@@ -285,19 +304,70 @@ export default function WalletApp() {
       setCashSig(sig)
     } catch (e) {
       setCashSig('')
-      setCashErr(e?.message ?? 'Could not claim cashback.')
+      if (e instanceof InsufficientSolError) {
+        showOsToast(e.message)
+      } else {
+        setCashErr(e?.message ?? 'Could not claim cashback.')
+      }
     } finally {
       setCashBusy(false)
     }
   }
 
+  const onTransferSol = async () => {
+    if (!bundle?.walletPublicKey || !bundle?.privateKey) return
+    setXferErr('')
+    setXferSig('')
+    const to = xferTo.trim()
+    if (!to) {
+      setXferErr('Enter a recipient address.')
+      return
+    }
+    try {
+      new PublicKey(to)
+    } catch {
+      setXferErr('Recipient is not a valid Solana address.')
+      return
+    }
+    const amt = Number(String(xferAmt).replace(',', '.'))
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setXferErr('Enter a positive SOL amount.')
+      return
+    }
+    setXferBusy(true)
+    try {
+      const sig = await transferPumpdevSol({
+        publicKey: bundle.walletPublicKey,
+        recipient: to,
+        amount: amt,
+        apiKey: bundle.apiKey,
+        privateKeyB58: bundle.privateKey,
+        rpcUrl: getSolanaRpcUrl(),
+      })
+      setXferSig(sig)
+      setXferAmt('')
+      void loadChain()
+    } catch (e) {
+      setXferSig('')
+      if (e instanceof InsufficientSolError) {
+        showOsToast(e.message)
+      } else {
+        setXferErr(e?.message ?? 'Transfer failed.')
+      }
+    } finally {
+      setXferBusy(false)
+    }
+  }
+
   return (
     <div className="os-app-wallet">
-      <p className="os-wallet-intro">
-        Create a new <strong>Solana wallet and API key</strong>, or <strong>import a JSON file</strong>{' '}
-        exported from this app. Stored in <strong>localStorage</strong>. Balances use the Solana RPC
-        configured for this deployment.
-      </p>
+      {!bundle || walletTab === 'balances' ? (
+        <p className="os-wallet-intro">
+          Create a new <strong>Solana wallet and API key</strong>, or <strong>import a JSON file</strong>{' '}
+          exported from this app. Stored in <strong>localStorage</strong>. Balances use the Solana RPC
+          configured for this deployment.
+        </p>
+      ) : null}
 
       <input
         ref={fileRef}
@@ -354,13 +424,6 @@ export default function WalletApp() {
             </div>
           </section>
 
-          {!bundle.apiKey?.trim() ? (
-            <p className="os-wallet-msg" role="status">
-              No API key in this bundle — Token Studio needs an <code className="os-wallet-intro-code">apiKey</code>.
-              Import JSON that includes it or create a new wallet.
-            </p>
-          ) : null}
-
           <div className="os-wallet-tabs" role="tablist" aria-label="Wallet sections">
             {WALLET_TABS.map((t) => (
               <button
@@ -386,6 +449,13 @@ export default function WalletApp() {
           >
             {walletTab === 'balances' ? (
               <>
+                {!bundle.apiKey?.trim() ? (
+                  <p className="os-wallet-msg" role="status">
+                    No API key in this bundle — Token Studio needs an{' '}
+                    <code className="os-wallet-intro-code">apiKey</code>. Import JSON that includes it or
+                    create a new wallet.
+                  </p>
+                ) : null}
                 <section className="os-wallet-chain" aria-label="Balances">
                   <div className="os-wallet-chain-head">
                     <button
@@ -543,6 +613,68 @@ export default function WalletApp() {
               </>
             ) : null}
 
+            {walletTab === 'transfer' ? (
+              <>
+                <div className="os-wallet-claim-field">
+                  <label className="os-wallet-claim-label" htmlFor={`${tabBaseId}-xfer-to`}>
+                    Recipient
+                  </label>
+                  <input
+                    id={`${tabBaseId}-xfer-to`}
+                    className="os-wallet-claim-input"
+                    value={xferTo}
+                    onChange={(e) => setXferTo(e.target.value)}
+                    placeholder="Solana address (base58)"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="os-wallet-claim-field">
+                  <label className="os-wallet-claim-label" htmlFor={`${tabBaseId}-xfer-amt`}>
+                    Amount (SOL)
+                  </label>
+                  <input
+                    id={`${tabBaseId}-xfer-amt`}
+                    className="os-wallet-claim-input"
+                    type="text"
+                    inputMode="decimal"
+                    value={xferAmt}
+                    onChange={(e) => setXferAmt(e.target.value)}
+                    placeholder="e.g. 0.1"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+                {xferErr ? (
+                  <p className="os-wallet-error" role="alert">
+                    {xferErr}
+                  </p>
+                ) : null}
+                {xferSig ? (
+                  <p className="os-wallet-claim-success" role="status">
+                    Submitted —{' '}
+                    <a
+                      href={`https://solscan.io/tx/${xferSig}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      view on Solscan
+                    </a>
+                  </p>
+                ) : null}
+                <div className="os-wallet-actions">
+                  <button
+                    type="button"
+                    className="os-wallet-primary"
+                    onClick={() => void onTransferSol()}
+                    disabled={xferBusy}
+                  >
+                    {xferBusy ? 'Working…' : 'Send SOL'}
+                  </button>
+                </div>
+              </>
+            ) : null}
+
             {walletTab === 'fees' ? (
               <>
                 <p className="os-wallet-claim-blurb">
@@ -640,24 +772,26 @@ export default function WalletApp() {
             ) : null}
           </div>
 
-          <div className="os-wallet-actions os-wallet-actions-footer">
-            <button
-              type="button"
-              className="os-wallet-secondary"
-              onClick={() => fileRef.current?.click()}
-              disabled={busy}
-            >
-              Import JSON (replace)
-            </button>
-            <button
-              type="button"
-              className="os-wallet-secondary"
-              onClick={fetchAndSaveNewWallet}
-              disabled={busy}
-            >
-              New wallet (API)
-            </button>
-          </div>
+          {walletTab === 'balances' ? (
+            <div className="os-wallet-actions os-wallet-actions-footer">
+              <button
+                type="button"
+                className="os-wallet-secondary"
+                onClick={() => fileRef.current?.click()}
+                disabled={busy}
+              >
+                Import JSON (replace)
+              </button>
+              <button
+                type="button"
+                className="os-wallet-secondary"
+                onClick={fetchAndSaveNewWallet}
+                disabled={busy}
+              >
+                New wallet (API)
+              </button>
+            </div>
+          ) : null}
         </>
       )}
     </div>
